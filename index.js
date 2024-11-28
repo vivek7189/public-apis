@@ -3,17 +3,17 @@ const admin = require('firebase-admin');
 const app = express();
 
 // Initialize Firebase Admin SDK
-const serviceAccount = require('./ascendant-idea-443107-f8-16719d951d18.json');
+//const serviceAccount = require('./ascendant-idea-443107-f8-16719d951d18.json');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.applicationDefault(),
   databaseURL: 'https://ascendant-idea-443107-f8.firebaseio.com'
 });
 
 const db = admin.firestore();
 //console.log('hello',db);
 // Define port
-const PORT = process.env.PORT || 8080;
+const PORT = 8080;
 
 // Routes
 app.get('/', (req, res) => {
