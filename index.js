@@ -6,7 +6,6 @@ const app = express();
 //const serviceAccount = require('./ascendant-idea-443107-f8-16719d951d18.json');
 
 admin.initializeApp({
-  credential: admin.credential.applicationDefault(),
   databaseURL: 'https://ascendant-idea-443107-f8.firebaseio.com'
 });
 
