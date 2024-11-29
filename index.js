@@ -24,57 +24,10 @@ const CLIENT_ID = '39abd687-3d3a-4311-8026-2871736cde56'; // Replace with your C
 const CLIENT_SECRET = 'q9YHkQ1LAXx4JDRavekz853wP3g56gbikck3qUcU'; // Replace with your Client Secret
 const API_URL = 'https://api.prokerala.com/';
 
-// Function to get access token
-async function getAccessToken() {
-    try {
-        const response = await axios.post(
-            `${API_URL}/token`,
-            new URLSearchParams({
-                grant_type: 'client_credentials',
-                client_id: CLIENT_ID,
-                client_secret: CLIENT_SECRET,
-            }).toString(),
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-            }
-        );
-
-        const { access_token, expires_in } = response.data;
-        console.log(`Access token received: ${access_token}`);
-        console.log(`Expires in: ${expires_in} seconds`);
-        return access_token;
-    } catch (error) {
-        console.error('Error obtaining access token:', error.response?.data || error.message);
-        throw error;
-    }
-}
 
 
-// Function to make authenticated API call
-async function makeAuthenticatedApiCall(accessToken) {
-    try {
-        const endpoint = `${API_URL}/v2/astrology/kundli`;
-        const params = {
-            ayanamsa: 1,
-            coordinates: '28.457523,77.026344',
-            datetime: '2022-03-17T10:50:40+00:00',
-        };
 
-        const response = await axios.get(endpoint, {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-            params,
-        });
 
-        return response.data;
-    } catch (error) {
-        console.error('Error making API call:', error.response?.data || error.message);
-        throw error;
-    }
-}
 
 
 // Routes
@@ -113,47 +66,44 @@ app.get('/users', async (req, res) => {
 });
 
 // New route for Prokerala API
-app.get('/astrology', async (req, res) => {
+
+
+
+app.get('/panchanga', async (req, res) => {
+    const { day = new Date().getDate(), month = new Date().getMonth() + 1, 
+            year = new Date().getFullYear(), place = 'Gurgaon', 
+            lat = 28.4595, lon = 77.0266, timezoneoffset = '+5.5' } = req.query;
+  
+    const panchangKey = `${day}-${month}-${year}-${place}`;
+  
     try {
-        const accessToken = await getAccessToken();
-        console.log('accessToken',accessToken)
-        const astrologyData = await makeAuthenticatedApiCall(accessToken);
-        console.log('astrologyData',astrologyData)
-        res.status(200).json(astrologyData);
+      // Check if Panchang data exists in Firestore
+      const doc = await db.collection('panchang').doc(panchangKey).get();
+      if (doc.exists) {
+        return res.json(doc.data().panchang); // Return cached data
+      }
+  
+      // Fetch Panchang data from API if not found in DB
+      const { data } = await axios.get('https://horoscope-and-panchanga.p.rapidapi.com/zodiac/panchanga', {
+        params: { day, month, year, place, lat, lon, timezoneoffset },
+        headers: {
+          'x-rapidapi-key': '82b6447f69msh660effd20a7cdbap121022jsnee4b5572f9e7',
+          'x-rapidapi-host': 'horoscope-and-panchanga.p.rapidapi.com'
+        }
+      });
+  
+      // Save Panchang data to Firestore
+      await db.collection('panchang').doc(panchangKey).set({
+        panchang: data.panchang,
+        lastUpdated: new Date().toISOString(),
+      });
+  
+      return res.json(data.panchang); // Return fetched data
     } catch (error) {
-        res.status(500).send('Error fetching astrology data',error);
+      console.error('Error fetching Panchang data:', error);
+      return res.status(500).json({ error: 'Error fetching Panchanga data' });
     }
-});
-
-app.get('/panchang', async (req, res) => {
-    const { ayanamsa = 1, coordinates = '28.457523,77.026344', datetimeVal, la = 'hi' } = req.query;
-    const datetime = datetimeVal || new Date().toISOString();
-
-    if (!datetime) {
-        return res.status(400).send({
-            error: 'Missing required query parameter: datetime is required',
-        });
-    }
-
-    try {
-        const accessToken = await getAccessToken();
-
-        const response = await axios.get(`${API_URL}/v2/astrology/panchang/advanced/`, {
-            params: { ayanamsa, coordinates, datetime, la },
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-        });
-
-        res.status(200).json(response.data);
-    } catch (error) {
-        console.error('Error fetching Panchang details:', error.response?.data || error.message);
-        res.status(500).send({
-            error: 'Failed to fetch Panchang details',
-            details: error.response?.data || error.message,
-        });
-    }
-});
+  });
 
 // Start the server
 app.listen(PORT, () => {
