@@ -15,21 +15,24 @@ const PORT = 8080;
 // Prokerala API Credentials
 const CLIENT_ID = '39abd687-3d3a-4311-8026-2871736cde56'; // Replace with your Client ID
 const CLIENT_SECRET = 'q9YHkQ1LAXx4JDRavekz853wP3g56gbikck3qUcU'; // Replace with your Client Secret
-const API_URL = 'https://api.prokerala.com/v2';
+const API_URL = 'https://api.prokerala.com/';
 
 // Function to get access token
 async function getAccessToken() {
     try {
-        const response = await axios.post(`${API_URL}/token`, null, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            params: {
+        const response = await axios.post(
+            `${API_URL}/token`,
+            new URLSearchParams({
                 grant_type: 'client_credentials',
                 client_id: CLIENT_ID,
                 client_secret: CLIENT_SECRET,
-            },
-        });
+            }).toString(),
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            }
+        );
 
         const { access_token, expires_in } = response.data;
         console.log(`Access token received: ${access_token}`);
@@ -41,10 +44,11 @@ async function getAccessToken() {
     }
 }
 
+
 // Function to make authenticated API call
 async function makeAuthenticatedApiCall(accessToken) {
     try {
-        const endpoint = `${API_URL}/astrology/kundli`;
+        const endpoint = `${API_URL}/v2/astrology/kundli`;
         const params = {
             ayanamsa: 1,
             coordinates: '23.1765,75.7885',
@@ -64,6 +68,7 @@ async function makeAuthenticatedApiCall(accessToken) {
         throw error;
     }
 }
+
 
 // Routes
 app.get('/', (req, res) => {
@@ -106,6 +111,36 @@ app.get('/astrology', async (req, res) => {
         res.status(200).json(astrologyData);
     } catch (error) {
         res.status(500).send('Error fetching astrology data',error);
+    }
+});
+
+app.get('/panchang', async (req, res) => {
+    const { ayanamsa = 1, coordinates = '10.214747,78.097626', datetimeVal, la = 'hi' } = req.query;
+    const datetime = datetimeVal || new Date().toISOString();
+
+    if (!datetime) {
+        return res.status(400).send({
+            error: 'Missing required query parameter: datetime is required',
+        });
+    }
+
+    try {
+        const accessToken = await getAccessToken();
+
+        const response = await axios.get(`${API_URL}/v2/astrology/panchang/advanced/`, {
+            params: { ayanamsa, coordinates, datetime, la },
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        res.status(200).json(response.data);
+    } catch (error) {
+        console.error('Error fetching Panchang details:', error.response?.data || error.message);
+        res.status(500).send({
+            error: 'Failed to fetch Panchang details',
+            details: error.response?.data || error.message,
+        });
     }
 });
 
