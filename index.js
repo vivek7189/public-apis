@@ -69,7 +69,7 @@ app.get('/users', async (req, res) => {
 
 
 
-app.get('/panchanga', async (req, res) => {
+app.get('/panchang', async (req, res) => {
     const { day = new Date().getDate(), month = new Date().getMonth() + 1, 
             year = new Date().getFullYear(), place = 'Gurgaon', 
             lat = 28.4595, lon = 77.0266, timezoneoffset = '+5.5' } = req.query;
