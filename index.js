@@ -2,7 +2,14 @@ const express = require('express');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const app = express();
+const cors = require('cors');
 
+// enable cors options
+const corsOptions = {
+    origin: 'https://vedbhakti.in', // Replace with your domain
+  };
+
+  app.use(cors(corsOptions));
 // Initialize Firebase Admin SDK
 admin.initializeApp({
     credential: admin.credential.applicationDefault(),
