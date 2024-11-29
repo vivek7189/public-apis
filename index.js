@@ -91,6 +91,8 @@ app.get('/panchang', async (req, res) => {
           'x-rapidapi-host': 'horoscope-and-panchanga.p.rapidapi.com'
         }
       });
+
+      console.log('data',data);
   
       // Save Panchang data to Firestore
       await db.collection('panchang').doc(panchangKey).set({
