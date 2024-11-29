@@ -94,7 +94,7 @@ app.get('/panchang', async (req, res) => {
 
       
   
-      const panchangData = data?.panchang;
+      const panchangData = data?.Panchang;
       console.log('panchangData',panchangData);
         // if (!panchangData) {
         // return res.status(500).json({ error: 'Panchang data is missing in the API response' });
