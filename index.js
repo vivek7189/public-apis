@@ -58,7 +58,7 @@ async function makeAuthenticatedApiCall(accessToken) {
         const endpoint = `${API_URL}/v2/astrology/kundli`;
         const params = {
             ayanamsa: 1,
-            coordinates: '23.1765,75.7885',
+            coordinates: '28.457523,77.026344',
             datetime: '2022-03-17T10:50:40+00:00',
         };
 
@@ -84,6 +84,10 @@ app.get('/', (req, res) => {
 
 app.get('/hello', (req, res) => {
     res.send('Hello, Cloud Run! hello boy');
+});
+
+app.get('/health', (req, res) => {
+    res.send('API running fine');
 });
 
 // Fetch users from Firestore
@@ -122,7 +126,7 @@ app.get('/astrology', async (req, res) => {
 });
 
 app.get('/panchang', async (req, res) => {
-    const { ayanamsa = 1, coordinates = '10.214747,78.097626', datetimeVal, la = 'hi' } = req.query;
+    const { ayanamsa = 1, coordinates = '28.457523,77.026344', datetimeVal, la = 'hi' } = req.query;
     const datetime = datetimeVal || new Date().toISOString();
 
     if (!datetime) {
