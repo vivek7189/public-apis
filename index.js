@@ -92,15 +92,21 @@ app.get('/panchang', async (req, res) => {
         }
       });
 
-      console.log('data',data);
+      
   
-      // Save Panchang data to Firestore
-      await db.collection('panchang').doc(panchangKey).set({
-        panchang: data.panchang,
+      const panchangData = data?.panchang;
+      console.log('panchangData',panchangData);
+        // if (!panchangData) {
+        // return res.status(500).json({ error: 'Panchang data is missing in the API response' });
+        // }
+
+        // Save Panchang data to Firestore
+        await db.collection('panchang').doc(panchangKey).set({
+        panchang: panchangData,
         lastUpdated: new Date().toISOString(),
-      });
-  
-      return res.json(data.panchang); // Return fetched data
+        });
+
+        return res.json(panchangData || {panchange:''}); 
     } catch (error) {
       console.error('Error fetching Panchang data:', error);
       return res.status(500).json({ error: 'Error fetching Panchanga data' });
