@@ -10,6 +10,8 @@ const cors = require('cors');
 //   };
 
   app.use(cors());
+  app.use(bodyParser.json()); // Parse JSON bodies
+app.use(bodyParser.urlencoded({ extended: true }));
 // Initialize Firebase Admin SDK
 admin.initializeApp({
     credential: admin.credential.applicationDefault(),
@@ -72,12 +74,15 @@ app.get('/users', async (req, res) => {
 
 app.post('/onboard', async (req, res) => {
     try {
+      // Log the request body to debug
+      console.log('Received data:', req.body);
+  
       const formData = req.body;
   
-      // Parse JSON fields
-      const languages = JSON.parse(formData.languages || '[]');
-      const expertiseAreas = JSON.parse(formData.expertiseAreas || '[]');
-      const services = JSON.parse(formData.services || '[]');
+      // Parse JSON fields if they exist
+      const languages = formData.languages ? JSON.parse(formData.languages) : [];
+      const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
+      const services = formData.services ? JSON.parse(formData.services) : [];
   
       // Prepare document data
       const documentData = {
