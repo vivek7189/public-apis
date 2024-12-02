@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const app = express();
 const cors = require('cors');
+const bodyParser = require('body-parser');
 
 // enable cors options
 // const corsOptions = {
