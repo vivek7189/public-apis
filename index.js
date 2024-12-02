@@ -69,50 +69,99 @@ app.get('/users', async (req, res) => {
 
 
 
-app.get('/panchang', async (req, res) => {
-    const { day = new Date().getDate(), month = new Date().getMonth() + 1, 
-            year = new Date().getFullYear(), place = 'Gurgaon', 
-            lat = 28.4595, lon = 77.0266, timezoneoffset = '+5.5' } = req.query;
+// app.get('/panchang', async (req, res) => {
+//     const { day = new Date().getDate(), month = new Date().getMonth() + 1, 
+//             year = new Date().getFullYear(), place = 'Gurgaon', 
+//             lat = 28.4595, lon = 77.0266, timezoneoffset = '+5.5' } = req.query;
   
-    const panchangKey = `${day}-${month}-${year}-${place}`;
+//     const panchangKey = `${day}-${month}-${year}-${place}`;
   
-    try {
-      // Check if Panchang data exists in Firestore
-      const doc = await db.collection('panchang').doc(panchangKey).get();
-      if (doc.exists) {
-        return res.json(doc.data().panchang); // Return cached data
-      }
+//     try {
+//       // Check if Panchang data exists in Firestore
+//       const doc = await db.collection('panchang').doc(panchangKey).get();
+//       if (doc.exists) {
+//         return res.json(doc.data().panchang); // Return cached data
+//       }
   
-      // Fetch Panchang data from API if not found in DB
-      const { data } = await axios.get('https://horoscope-and-panchanga.p.rapidapi.com/zodiac/panchanga', {
-        params: { day, month, year, place, lat, lon, timezoneoffset },
-        headers: {
-          'x-rapidapi-key': '82b6447f69msh660effd20a7cdbap121022jsnee4b5572f9e7',
-          'x-rapidapi-host': 'horoscope-and-panchanga.p.rapidapi.com'
-        }
-      });
+//       // Fetch Panchang data from API if not found in DB
+//       const { data } = await axios.get('https://horoscope-and-panchanga.p.rapidapi.com/zodiac/panchanga', {
+//         params: { day, month, year, place, lat, lon, timezoneoffset },
+//         headers: {
+//           'x-rapidapi-key': '82b6447f69msh660effd20a7cdbap121022jsnee4b5572f9e7',
+//           'x-rapidapi-host': 'horoscope-and-panchanga.p.rapidapi.com'
+//         }
+//       });
 
       
   
-      const panchangData = data?.Panchang;
-      console.log('panchangData',panchangData);
-        // if (!panchangData) {
-        // return res.status(500).json({ error: 'Panchang data is missing in the API response' });
-        // }
+//       const panchangData = data?.Panchang;
+//       console.log('panchangData',panchangData);
+//         // if (!panchangData) {
+//         // return res.status(500).json({ error: 'Panchang data is missing in the API response' });
+//         // }
 
-        // Save Panchang data to Firestore
-        await db.collection('panchang').doc(panchangKey).set({
+//         // Save Panchang data to Firestore
+//         await db.collection('panchang').doc(panchangKey).set({
+//         panchang: panchangData,
+//         lastUpdated: new Date().toISOString(),
+//         });
+
+//         return res.json(panchangData || {panchange:''}); 
+//     } catch (error) {
+//       console.error('Error fetching Panchang data:', error);
+//       return res.status(500).json({ error: 'Error fetching Panchanga data' });
+//     }
+//   });
+
+
+  app.get('/panchang', async (req, res) => {
+    const { day = new Date().getDate(), month = new Date().getMonth() + 1, 
+            year = new Date().getFullYear(), place = 'Gurgaon', 
+            lat = 28.4595, lon = 77.0266, timezoneoffset = '+5.5' } = req.query;
+    
+    const panchangKey = `${day}-${month}-${year}-${place}`;
+    
+    try {
+      // Check if Panchang data for today exists in Firestore
+      const doc = await db.collection('panchang').doc(panchangKey).get();
+  
+      // If today's data exists, return it
+      if (doc.exists) {
+        return res.json(doc.data().panchang); // Return cached data
+      }
+      
+      // No data for today, delete the old data (if any) for the previous day
+      const yesterdayKey = `${day - 1}-${month}-${year}-${place}`;
+      await db.collection('panchang').doc(yesterdayKey).delete(); // Delete old data if exists
+  
+      // Fetch Panchang data from the API
+      const { data } = await axios.get('https://horoscope-and-panchanga.p.rapidapi.com/zodiac/panchanga', {
+        params: { day, month, year, place, lat, lon, timezoneoffset },
+        headers: {
+            'x-rapidapi-key': '82b6447f69msh660effd20a7cdbap121022jsnee4b5572f9e7',
+            'x-rapidapi-host': 'horoscope-and-panchanga.p.rapidapi.com'
+        }
+      });
+  
+      const panchangData = data?.Panchang;
+  
+      if (!panchangData) {
+        return res.status(500).json({ error: 'Panchang data is missing in the API response' });
+      }
+  
+      // Save today's Panchang data to Firestore
+      await db.collection('panchang').doc(panchangKey).set({
         panchang: panchangData,
         lastUpdated: new Date().toISOString(),
-        });
-
-        return res.json(panchangData || {panchange:''}); 
+      });
+  
+      return res.json(panchangData); // Return the freshly fetched data
+  
     } catch (error) {
       console.error('Error fetching Panchang data:', error);
       return res.status(500).json({ error: 'Error fetching Panchanga data' });
     }
   });
-
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
