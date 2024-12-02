@@ -68,50 +68,66 @@ app.get('/users', async (req, res) => {
 // New route for Prokerala API
 
 
+// astro pandit app
 
-// app.get('/panchang', async (req, res) => {
-//     const { day = new Date().getDate(), month = new Date().getMonth() + 1, 
-//             year = new Date().getFullYear(), place = 'Gurgaon', 
-//             lat = 28.4595, lon = 77.0266, timezoneoffset = '+5.5' } = req.query;
+app.post('/onboard', async (req, res) => {
+    try {
+      const formData = req.body;
   
-//     const panchangKey = `${day}-${month}-${year}-${place}`;
+      // Parse JSON fields
+      const languages = JSON.parse(formData.languages || '[]');
+      const expertiseAreas = JSON.parse(formData.expertiseAreas || '[]');
+      const services = JSON.parse(formData.services || '[]');
   
-//     try {
-//       // Check if Panchang data exists in Firestore
-//       const doc = await db.collection('panchang').doc(panchangKey).get();
-//       if (doc.exists) {
-//         return res.json(doc.data().panchang); // Return cached data
-//       }
+      // Prepare document data
+      const documentData = {
+        name: formData.name || '',
+        title: formData.title || '',
+        email: formData.email || '',
+        phone: formData.phone || '',
+        location: formData.location || '',
+        experience: formData.experience || '',
+        bio: formData.bio || '',
+        languages,
+        expertiseAreas,
+        services,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
   
-//       // Fetch Panchang data from API if not found in DB
-//       const { data } = await axios.get('https://horoscope-and-panchanga.p.rapidapi.com/zodiac/panchanga', {
-//         params: { day, month, year, place, lat, lon, timezoneoffset },
-//         headers: {
-//           'x-rapidapi-key': '82b6447f69msh660effd20a7cdbap121022jsnee4b5572f9e7',
-//           'x-rapidapi-host': 'horoscope-and-panchanga.p.rapidapi.com'
-//         }
-//       });
+      // Save data to Firestore
+      const docRef = await db.collection('astro_pandit').add(documentData);
+  
+      res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
+    } catch (error) {
+      console.error('Error saving data:', error);
+      res.status(500).send('Failed to submit application');
+    }
+  });
+  
+  // API endpoint to fetch all records from the "astro_pandit" collection
+  app.get('/astro_pandit', async (req, res) => {
+    try {
+      const panditsRef = db.collection('astro_pandit');
+      const snapshot = await panditsRef.get();
+  
+      if (snapshot.empty) {
+        return res.status(404).send('No data found');
+      }
+  
+      const pandits = [];
+      snapshot.forEach((doc) => {
+        pandits.push({ id: doc.id, ...doc.data() });
+      });
+  
+      res.status(200).json(pandits);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      res.status(500).send('Internal Server Error');
+    }
+  });
 
-      
   
-//       const panchangData = data?.Panchang;
-//       console.log('panchangData',panchangData);
-//         // if (!panchangData) {
-//         // return res.status(500).json({ error: 'Panchang data is missing in the API response' });
-//         // }
-
-//         // Save Panchang data to Firestore
-//         await db.collection('panchang').doc(panchangKey).set({
-//         panchang: panchangData,
-//         lastUpdated: new Date().toISOString(),
-//         });
-
-//         return res.json(panchangData || {panchange:''}); 
-//     } catch (error) {
-//       console.error('Error fetching Panchang data:', error);
-//       return res.status(500).json({ error: 'Error fetching Panchanga data' });
-//     }
-//   });
+  // astro pandi app
 
 
   app.get('/panchang', async (req, res) => {
