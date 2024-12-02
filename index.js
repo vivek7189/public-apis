@@ -4,12 +4,13 @@ const axios = require('axios');
 const app = express();
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const multer = require('multer');
 
 // enable cors options
 // const corsOptions = {
 //     origin: 'https://vedbhakti.in', // Replace with your domain
 //   };
-
+const upload = multer();
   app.use(cors());
   app.use(bodyParser.json()); // Parse JSON bodies
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -73,7 +74,7 @@ app.get('/users', async (req, res) => {
 
 // astro pandit app
 
-app.post('/onboard', async (req, res) => {
+app.post('/onboard',upload.none(), async (req, res) => {
     try {
       // Log the request body to debug
       console.log('Received data:', req.body);
