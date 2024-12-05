@@ -73,66 +73,61 @@ app.get('/users', async (req, res) => {
 
 
 // astro pandit app
+app.post('/onboard', async (req, res) => {
+  try {
+    const formData = req.body;
 
-app.post('/onboard',upload.none(), async (req, res) => {
-    try {
-      // Log the request body to debug
-      console.log('Received data:', req.body);
-  
-      const formData = req.body;
-  
-      // Parse JSON fields if they exist
-      const languages = formData.languages ? JSON.parse(formData.languages) : [];
-      const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
-      const services = formData.services ? JSON.parse(formData.services) : [];
-  
-      // Prepare document data
-      const documentData = {
-        name: formData.name || '',
-        title: formData.title || '',
-        email: formData.email || '',
-        phone: formData.phone || '',
-        location: formData.location || '',
-        experience: formData.experience || '',
-        bio: formData.bio || '',
-        languages,
-        expertiseAreas,
-        services,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
-  
-      // Save data to Firestore
-      const docRef = await db.collection('astro_pandit').add(documentData);
-  
-      res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
-    } catch (error) {
-      console.error('Error saving data:', error);
-      res.status(500).send('Failed to submit application');
-    }
-  });
-  
-  // API endpoint to fetch all records from the "astro_pandit" collection
-  app.get('/astro_pandit', async (req, res) => {
-    try {
-      const panditsRef = db.collection('astro_pandit');
-      const snapshot = await panditsRef.get();
-  
-      if (snapshot.empty) {
-        return res.status(404).send('No data found');
-      }
-  
-      const pandits = [];
-      snapshot.forEach((doc) => {
-        pandits.push({ id: doc.id, ...doc.data() });
-      });
-  
-      res.status(200).json(pandits);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      res.status(500).send('Internal Server Error');
-    }
-  });
+    // Parse JSON fields
+    const languages = JSON.parse(formData.languages || '[]');
+    const expertiseAreas = JSON.parse(formData.expertiseAreas || '[]');
+    const services = JSON.parse(formData.services || '[]');
 
+    // Prepare document data
+    const documentData = {
+      name: formData.name || '',
+      title: formData.title || '',
+      email: formData.email || '',
+      phone: formData.phone || '',
+      location: formData.location || '',
+      experience: formData.experience || '',
+      bio: formData.bio || '',
+      languages,
+      expertiseAreas,
+      services,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // Save data to Firestore
+    const docRef = await db.collection('astro_pandit').add(documentData);
+
+    res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
+  } catch (error) {
+    console.error('Error saving data:', error);
+    res.status(500).send('Failed to submit application');
+  }
+});
+
+// API endpoint to fetch all records from the "astro_pandit" collection
+app.get('/astro_pandit', async (req, res) => {
+  try {
+    const panditsRef = db.collection('astro_pandit');
+    const snapshot = await panditsRef.get();
+
+    if (snapshot.empty) {
+      return res.status(404).send('No data found');
+    }
+
+    const pandits = [];
+    snapshot.forEach((doc) => {
+      pandits.push({ id: doc.id, ...doc.data() });
+    });
+
+    res.status(200).json(pandits);
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
   
   // astro pandi app
 
