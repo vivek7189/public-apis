@@ -70,7 +70,7 @@ app.post('/onboard', upload.single('image'), async (req, res) => {
       // Upload image
       const filename = `images/${Date.now()}-${req.file.originalname}`;
       const blob = bucket.file(filename);
-      
+      console.log('bucket.name33',bucket.name);
       await blob.save(req.file.buffer, {
           contentType: req.file.mimetype
       });
