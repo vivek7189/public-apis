@@ -23,18 +23,19 @@ admin.initializeApp({
 
 const db = admin.firestore(); // Firestore reference
 const storage = admin.storage(); // Firebase Storage reference
-
-const upload = multer({
-  storage: multer.memoryStorage(), // Store the image in memory
-  limits: { fileSize: 1024 * 1024 * 5 }, // Limit file size to 5MB
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
-      cb(null, true);
-    } else {
-      cb(new Error('Only JPEG and PNG images are allowed'));
-    }
-  },
-});
+const bucket = admin.storage().bucket();
+console.log('Default bucket name:', bucket.name);
+// const upload = multer({
+//   storage: multer.memoryStorage(), // Store the image in memory
+//   limits: { fileSize: 1024 * 1024 * 5 }, // Limit file size to 5MB
+//   fileFilter: (req, file, cb) => {
+//     if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+//       cb(null, true);
+//     } else {
+//       cb(new Error('Only JPEG and PNG images are allowed'));
+//     }
+//   },
+// });
 const PORT = 8080;
 
 // Prokerala API Credentials
@@ -43,7 +44,7 @@ const PORT = 8080;
 // const API_URL = 'https://api.prokerala.com/';
 
 
-//const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory temporarily
+const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory temporarily
 
 
 
@@ -67,6 +68,9 @@ app.get('/health', (req, res) => {
 
 app.post('/onboard', upload.single('profileImage'), async (req, res) => {
   try {
+    // Log the request body for debugging
+    console.log('Received data:', req.body);
+
     const formData = req.body;
 
     // Parse JSON fields if they exist
@@ -74,7 +78,7 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
     const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
     const services = formData.services ? JSON.parse(formData.services) : [];
 
-    // Prepare document data
+    // Prepare document data for Firestore
     const documentData = {
       name: formData.name || '',
       title: formData.title || '',
@@ -89,9 +93,9 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    // Handle image upload if provided
+    // Handle image upload
     if (req.file) {
-      const bucket = storage.bucket(); // Reference to Firebase Storage bucket
+      const bucket = admin.storage().bucket(); // Reference to Firebase Storage bucket
       const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
       const file = bucket.file(fileName);
 
@@ -100,19 +104,20 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
         metadata: { contentType: req.file.mimetype },
       });
 
-      // Get public download URL
+      // Get public download URL with expiration
       const [url] = await file.getSignedUrl({
         action: 'read',
         expires: '03-01-2030', // Set an expiry date for the signed URL
       });
 
-      // Add image URL to Firestore data
+      // Add image URL to Firestore document data
       documentData.profileImageUrl = url;
     }
 
-    // Save data to Firestore
+    // Save data to Firestore (astro_pandit collection)
     const docRef = await db.collection('astro_pandit').add(documentData);
 
+    // Send success response with the Firestore document ID
     res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
   } catch (error) {
     console.error('Error saving data:', error);
