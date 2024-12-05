@@ -29,12 +29,30 @@ const upload = multer({
     }
 });
 
+async function testBucket() {
+  try {
+      const [exists] = await bucket.exists();
+      console.log('Bucket exists:', exists);
+      console.log('Bucket name:', bucket.name);
+      
+      const [files] = await bucket.getFiles();
+      console.log('Files in bucket:', files.length);
+  } catch (error) {
+      console.error('Error details:', {
+          code: error.code,
+          message: error.message,
+          stack: error.stack
+      });
+  }
+}
+
+
 app.post('/onboard', upload.single('profileImage'), async (req, res) => {
     try {
         console.log('Received data:', req.body);
 
         const formData = req.body;
-
+        testBucket();
         // Parse JSON fields if they exist
         const languages = formData.languages ? JSON.parse(formData.languages) : [];
         const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
@@ -113,42 +131,7 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
 
 // astro pandit app
 
-app.post('/onboard',upload.none(), async (req, res) => {
-    try {
-      // Log the request body to debug
-      console.log('Received data:', req.body);
-  
-      const formData = req.body;
-  
-      // Parse JSON fields if they exist
-      const languages = formData.languages ? JSON.parse(formData.languages) : [];
-      const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
-      const services = formData.services ? JSON.parse(formData.services) : [];
-  
-      // Prepare document data
-      const documentData = {
-        name: formData.name || '',
-        title: formData.title || '',
-        email: formData.email || '',
-        phone: formData.phone || '',
-        location: formData.location || '',
-        experience: formData.experience || '',
-        bio: formData.bio || '',
-        languages,
-        expertiseAreas,
-        services,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
-  
-      // Save data to Firestore
-      const docRef = await db.collection('astro_pandit').add(documentData);
-  
-      res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
-    } catch (error) {
-      console.error('Error saving data:', error);
-      res.status(500).send('Failed to submit application');
-    }
-  });
+
   
   // API endpoint to fetch all records from the "astro_pandit" collection
   app.get('/astro_pandit', async (req, res) => {
