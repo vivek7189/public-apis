@@ -10,7 +10,7 @@ const multer = require('multer');
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
+const PORT = 3000;
 // Initialize Firebase Admin SDK with explicit credentials
 //const serviceAccount = require('./path-to-your-serviceAccount.json'); // Make sure this path is correct
 admin.initializeApp({
