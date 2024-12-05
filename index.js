@@ -29,6 +29,22 @@ const upload = multer({
     }
 });
 
+async function testBucket() {
+  try {
+      const [exists] = await bucket.exists();
+      console.log('Bucket exists:', exists);
+      console.log('Bucket name:', bucket.name);
+      
+      const [files] = await bucket.getFiles();
+      console.log('Files in bucket:', files.length);
+  } catch (error) {
+      console.error('Error details333333:', {
+          code: error.code,
+          message: error.message,
+          stack: error.stack
+      });
+  }
+}
 
 
 app.post('/onboard', upload.single('profileImage'), async (req, res) => {
@@ -36,58 +52,58 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
       console.log('Received data:', req.body);
       
       const formData = req.body;
-      
+      testBucket()
       // Parse JSON fields
-      const languages = formData.languages ? JSON.parse(formData.languages) : [];
-      const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
-      const services = formData.services ? JSON.parse(formData.services) : [];
+      // const languages = formData.languages ? JSON.parse(formData.languages) : [];
+      // const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
+      // const services = formData.services ? JSON.parse(formData.services) : [];
 
-      // Prepare document data
-      const documentData = {
-          name: formData.name || '',
-          title: formData.title || '',
-          email: formData.email || '',
-          phone: formData.phone || '',
-          location: formData.location || '',
-          experience: formData.experience || '',
-          bio: formData.bio || '',
-          languages,
-          expertiseAreas,
-          services,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
+      // // Prepare document data
+      // const documentData = {
+      //     name: formData.name || '',
+      //     title: formData.title || '',
+      //     email: formData.email || '',
+      //     phone: formData.phone || '',
+      //     location: formData.location || '',
+      //     experience: formData.experience || '',
+      //     bio: formData.bio || '',
+      //     languages,
+      //     expertiseAreas,
+      //     services,
+      //     createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      // };
 
-      // Handle image upload
-      if (req.file) {
-          const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
+      // // Handle image upload
+      // if (req.file) {
+      //     const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
           
-          try {
-              // Upload file with proper options for Cloud Run
-              await bucket.file(fileName).save(req.file.buffer, {
-                  contentType: req.file.mimetype,
-                  metadata: {
-                      contentType: req.file.mimetype,
-                  },
-                  public: true,
-                  validation: 'md5'
-              });
+      //     try {
+      //         // Upload file with proper options for Cloud Run
+      //         await bucket.file(fileName).save(req.file.buffer, {
+      //             contentType: req.file.mimetype,
+      //             metadata: {
+      //                 contentType: req.file.mimetype,
+      //             },
+      //             public: true,
+      //             validation: 'md5'
+      //         });
 
-              // Get the public URL
-              const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-              documentData.profileImageUrl = publicUrl;
+      //         // Get the public URL
+      //         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+      //         documentData.profileImageUrl = publicUrl;
               
-          } catch (uploadError) {
-              console.error('Upload error details:', uploadError);
-              throw new Error(`Failed to upload image1111111111111111: ${uploadError.message}`);
-          }
-      }
+      //     } catch (uploadError) {
+      //         console.error('Upload error details:', uploadError);
+      //         throw new Error(`Failed to upload image: ${uploadError.message}`);
+      //     }
+      // }
 
-      // Save to Firestore
-      const docRef = await db.collection('astro_pandit').add(documentData);
+      // // Save to Firestore
+      // const docRef = await db.collection('astro_pandit').add(documentData);
       res.status(201).json({ 
           message: 'Application submitted successfully!', 
-          id: docRef.id,
-          data: documentData 
+          id:'hh'
+         
       });
 
   } catch (error) {
