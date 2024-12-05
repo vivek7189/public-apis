@@ -53,6 +53,7 @@ app.get('/health', (req, res) => {
 
 app.post('/onboard', upload.single('profileImage'), async (req, res) => {
   try {
+    // Log the request body to debug
     console.log('Received data:', req.body);
 
     const formData = req.body;
@@ -79,7 +80,7 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
 
     // Handle image upload
     if (req.file) {
-      const bucket = admin.storage().bucket('ascendant-idea-443107-f8.firebaseio.com'); // Reference to Firebase Storage bucket
+      const bucket = admin.storage().bucket('gs://ascendant-idea-443107-f8.appspot.com'); // Reference to Firebase Storage bucket
       const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
       const file = bucket.file(fileName);
 
