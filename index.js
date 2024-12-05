@@ -61,7 +61,7 @@ app.get('/users', async (req, res) => {
 
 
 // astro pandit app
-app.post('/onboard', upload.single('image'), async (req, res) => {
+app.post('/onboard', upload.single('profileImage'), async (req, res) => {
   try {
       if (!req.file || !req.body) {
           return res.status(400).json({ error: 'Missing required fields' });
