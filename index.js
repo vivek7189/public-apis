@@ -10,7 +10,7 @@ const multer = require('multer');
 // const corsOptions = {
 //     origin: 'https://vedbhakti.in', // Replace with your domain
 //   };
-const upload = multer();
+
   app.use(cors());
   app.use(bodyParser.json()); // Parse JSON bodies
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -29,6 +29,7 @@ const CLIENT_SECRET = 'q9YHkQ1LAXx4JDRavekz853wP3g56gbikck3qUcU'; // Replace wit
 const API_URL = 'https://api.prokerala.com/';
 
 
+const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory temporarily
 
 
 
@@ -48,26 +49,65 @@ app.get('/health', (req, res) => {
 });
 
 // Fetch users from Firestore
-app.get('/users', async (req, res) => {
-    try {
-        const usersRef = db.collection('users');
-        const snapshot = await usersRef.get();
 
-        if (snapshot.empty) {
-            return res.status(404).send('No users found');
-        }
 
-        const users = [];
-        snapshot.forEach((doc) => {
-            users.push({ id: doc.id, ...doc.data() });
-        });
+app.post('/onboard', upload.single('profileImage'), async (req, res) => {
+  try {
+    console.log('Received data:', req.body);
 
-        res.status(200).json(users);
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        res.status(500).send('Internal Server Error');
+    const formData = req.body;
+
+    // Parse JSON fields if they exist
+    const languages = formData.languages ? JSON.parse(formData.languages) : [];
+    const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
+    const services = formData.services ? JSON.parse(formData.services) : [];
+
+    // Prepare document data
+    const documentData = {
+      name: formData.name || '',
+      title: formData.title || '',
+      email: formData.email || '',
+      phone: formData.phone || '',
+      location: formData.location || '',
+      experience: formData.experience || '',
+      bio: formData.bio || '',
+      languages,
+      expertiseAreas,
+      services,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // Handle image upload
+    if (req.file) {
+      const bucket = admin.storage().bucket(); // Reference to Firebase Storage bucket
+      const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
+      const file = bucket.file(fileName);
+
+      // Upload image to Firebase Storage
+      await file.save(req.file.buffer, {
+        metadata: { contentType: req.file.mimetype },
+      });
+
+      // Get public download URL
+      const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2030', // Set an expiry date for the signed URL
+      });
+
+      // Add image URL to Firestore data
+      documentData.profileImageUrl = url;
     }
+
+    // Save data to Firestore
+    const docRef = await db.collection('astro_pandit').add(documentData);
+
+    res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
+  } catch (error) {
+    console.error('Error saving data:', error);
+    res.status(500).send('Failed to submit application');
+  }
 });
+
 
 // New route for Prokerala API
 
