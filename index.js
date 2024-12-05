@@ -21,16 +21,29 @@ admin.initializeApp({
     storageBucket: 'ascendant-idea-443107-f8.appspot.com'
 });
 
-const db = admin.firestore();
+const db = admin.firestore(); // Firestore reference
+const storage = admin.storage(); // Firebase Storage reference
+
+const upload = multer({
+  storage: multer.memoryStorage(), // Store the image in memory
+  limits: { fileSize: 1024 * 1024 * 5 }, // Limit file size to 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG and PNG images are allowed'));
+    }
+  },
+});
 const PORT = 8080;
 
 // Prokerala API Credentials
-const CLIENT_ID = '39abd687-3d3a-4311-8026-2871736cde56'; // Replace with your Client ID
-const CLIENT_SECRET = 'q9YHkQ1LAXx4JDRavekz853wP3g56gbikck3qUcU'; // Replace with your Client Secret
-const API_URL = 'https://api.prokerala.com/';
+// const CLIENT_ID = '39abd687-3d3a-4311-8026-2871736cde56'; // Replace with your Client ID
+// const CLIENT_SECRET = 'q9YHkQ1LAXx4JDRavekz853wP3g56gbikck3qUcU'; // Replace with your Client Secret
+// const API_URL = 'https://api.prokerala.com/';
 
 
-const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory temporarily
+//const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory temporarily
 
 
 
@@ -54,9 +67,6 @@ app.get('/health', (req, res) => {
 
 app.post('/onboard', upload.single('profileImage'), async (req, res) => {
   try {
-    // Log the request body to debug
-    //console.log('Received data:', req.body);
-
     const formData = req.body;
 
     // Parse JSON fields if they exist
@@ -79,10 +89,9 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    // Handle image upload
+    // Handle image upload if provided
     if (req.file) {
-      const bucket = admin.storage().bucket(); // Reference to Firebase Storage bucket
-      console.log('bucket',bucket)
+      const bucket = storage.bucket(); // Reference to Firebase Storage bucket
       const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
       const file = bucket.file(fileName);
 
