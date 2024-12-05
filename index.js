@@ -17,106 +17,103 @@ admin.initializeApp({
     credential: admin.credential.applicationDefault(), // Use cert instead of applicationDefault
     storageBucket: 'ascendant-idea-443107-f8.appspot.com'
 });
-
 const db = admin.firestore();
-const bucket = admin.storage().bucket(); // Initialize bucket once
+const bucket = admin.storage().bucket();
 
-// Configure multer with file size limits
+// Multer config
 const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
-    }
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
-
-async function testBucket() {
-  try {
-      const [exists] = await bucket.exists();
-      console.log('Bucket exists:', exists);
-      console.log('Bucket name:', bucket.name);
-      
-      const [files] = await bucket.getFiles();
-      console.log('Files in bucket:', files.length);
-  } catch (error) {
-      console.error('Error details333333:', {
-          code: error.code,
-          message: error.message,
-          stack: error.stack
-      });
-  }
-}
-
 
 app.post('/onboard', upload.single('profileImage'), async (req, res) => {
   try {
-      console.log('Received data:', req.body);
-      
-      const formData = req.body;
-      testBucket()
-      // Parse JSON fields
-      // const languages = formData.languages ? JSON.parse(formData.languages) : [];
-      // const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
-      // const services = formData.services ? JSON.parse(formData.services) : [];
+    console.log('Received data:111111', req.body);
+    const formData = req.body;
 
-      // // Prepare document data
-      // const documentData = {
-      //     name: formData.name || '',
-      //     title: formData.title || '',
-      //     email: formData.email || '',
-      //     phone: formData.phone || '',
-      //     location: formData.location || '',
-      //     experience: formData.experience || '',
-      //     bio: formData.bio || '',
-      //     languages,
-      //     expertiseAreas,
-      //     services,
-      //     createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      // };
+    // Parse JSON fields
+    const languages = formData.languages ? JSON.parse(formData.languages) : [];
+    const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
+    const services = formData.services ? JSON.parse(formData.services) : [];
 
-      // // Handle image upload
-      // if (req.file) {
-      //     const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
-          
-      //     try {
-      //         // Upload file with proper options for Cloud Run
-      //         await bucket.file(fileName).save(req.file.buffer, {
-      //             contentType: req.file.mimetype,
-      //             metadata: {
-      //                 contentType: req.file.mimetype,
-      //             },
-      //             public: true,
-      //             validation: 'md5'
-      //         });
+    // Base document data
+    const documentData = {
+      name: formData.name || '',
+      title: formData.title || '',
+      email: formData.email || '',
+      phone: formData.phone || '',
+      location: formData.location || '',
+      experience: formData.experience || '',
+      bio: formData.bio || '',
+      languages,
+      expertiseAreas,
+      services,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
 
-      //         // Get the public URL
-      //         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      //         documentData.profileImageUrl = publicUrl;
-              
-      //     } catch (uploadError) {
-      //         console.error('Upload error details:', uploadError);
-      //         throw new Error(`Failed to upload image: ${uploadError.message}`);
-      //     }
-      // }
+    // Handle image upload if present
+    if (req.file) {
+      try {
+        const fileExtension = req.file.originalname.split('.').pop();
+        const fileName = `profileImages/${uuidv4()}.${fileExtension}`;
+        const file = bucket.file(fileName);
 
-      // // Save to Firestore
-      // const docRef = await db.collection('astro_pandit').add(documentData);
-      res.status(201).json({ 
-          message: 'Application submitted successfully!', 
-          id:'hh'
-         
-      });
+        // Create write stream
+        const blobStream = file.createWriteStream({
+          metadata: {
+            contentType: req.file.mimetype
+          },
+          resumable: false
+        });
+
+        // Handle upload using Promise
+        await new Promise((resolve, reject) => {
+          blobStream.on('error', (error) => {
+            console.error('Upload error:', error);
+            reject(error);
+          });
+
+          blobStream.on('finish', async () => {
+            // Make file public
+            await file.makePublic();
+            
+            // Get public URL
+            const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+            documentData.profileImageUrl = publicUrl;
+            resolve();
+          });
+
+          // Write file
+          blobStream.end(req.file.buffer);
+        });
+
+      } catch (uploadError) {
+        console.error('Image upload error11111:', uploadError);
+        return res.status(500).json({
+          error: 'Image upload failed',
+          details: uploadError.message
+        });
+      }
+    }
+
+    // Save to Firestore
+    const docRef = await db.collection('astro_pandit').add(documentData);
+
+    // Return success response
+    res.status(201).json({
+      message: 'Application submitted successfully1111!',
+      id: docRef.id,
+      data: documentData
+    });
 
   } catch (error) {
-      console.error('Error full details:', error);
-      res.status(500).json({ 
-          error: 'Failed to submit application', 
-          message: error 
-      });
+    console.error('Error in onboarding11111:', error);
+    res.status(500).json({
+      error: 'Failed to submit application11111',
+      details: error.message
+    });
   }
 });
-
-
-// New route for Prokerala API
 
 
 // astro pandit app
