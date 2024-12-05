@@ -112,6 +112,47 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
   }
 });
 
+
+app.get('/astrologers', async (req, res) => {
+  try {
+      // Get reference to the collection
+      const astrologersRef = db.collection('astro_pandit');
+      
+      // Get all documents
+      const snapshot = await astrologersRef.orderBy('createdAt', 'desc').get();
+
+      if (snapshot.empty) {
+          return res.status(200).json({ 
+              message: 'No astrologers found',
+              data: [] 
+          });
+      }
+
+      // Transform the data
+      const astrologers = [];
+      snapshot.forEach(doc => {
+          astrologers.push({
+              id: doc.id,
+              ...doc.data(),
+              // Convert Timestamp to ISO string for easier handling in frontend
+              createdAt: doc.data().createdAt ? doc.data().createdAt.toDate().toISOString() : null
+          });
+      });
+
+      res.status(200).json({
+          message: 'Astrologers fetched successfully',
+          count: astrologers.length,
+          data: astrologers
+      });
+
+  } catch (error) {
+      console.error('Error fetching astrologers:', error);
+      res.status(500).json({ 
+          error: 'Failed to fetch astrologers', 
+          details: error.message 
+      });
+  }
+});
 // API endpoint to fetch all records from the "astro_pandit" collection
 app.get('/astro_pandit', async (req, res) => {
   try {
