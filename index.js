@@ -6,119 +6,110 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const multer = require('multer');
 
-// Enable CORS
-app.use(cors());
-app.use(bodyParser.json());
+// enable cors options
+// const corsOptions = {
+//     origin: 'https://vedbhakti.in', // Replace with your domain
+//   };
+const upload = multer();
+  app.use(cors());
+  app.use(bodyParser.json()); // Parse JSON bodies
 app.use(bodyParser.urlencoded({ extended: true }));
-const PORT = 3000;
-// Initialize Firebase Admin SDK with explicit credentials
-//const serviceAccount = require('./path-to-your-serviceAccount.json'); // Make sure this path is correct
+// Initialize Firebase Admin SDK
 admin.initializeApp({
-    credential: admin.credential.applicationDefault(), // Use cert instead of applicationDefault
-    storageBucket: 'ascendant-idea-443107-f8.appspot.com'
+    credential: admin.credential.applicationDefault(),
+    databaseURL: 'https://ascendant-idea-443107-f8.firebaseio.com',
 });
+
 const db = admin.firestore();
-const bucket = admin.storage().bucket();
+const PORT = 8080;
 
-// Multer config
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+// Prokerala API Credentials
+const CLIENT_ID = '39abd687-3d3a-4311-8026-2871736cde56'; // Replace with your Client ID
+const CLIENT_SECRET = 'q9YHkQ1LAXx4JDRavekz853wP3g56gbikck3qUcU'; // Replace with your Client Secret
+const API_URL = 'https://api.prokerala.com/';
+
+
+
+
+
+
+
+// Routes
+app.get('/', (req, res) => {
+    res.send('Hello, Cloud Run!');
 });
 
-app.post('/onboard', upload.single('profileImage'), async (req, res) => {
-  try {
-    console.log('Received data:111111', req.body);
-    const formData = req.body;
+app.get('/hello', (req, res) => {
+    res.send('Hello, Cloud Run! hello boy');
+});
 
-    // Parse JSON fields
-    const languages = formData.languages ? JSON.parse(formData.languages) : [];
-    const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
-    const services = formData.services ? JSON.parse(formData.services) : [];
+app.get('/health', (req, res) => {
+    res.send('API running fine');
+});
 
-    // Base document data
-    const documentData = {
-      name: formData.name || '',
-      title: formData.title || '',
-      email: formData.email || '',
-      phone: formData.phone || '',
-      location: formData.location || '',
-      experience: formData.experience || '',
-      bio: formData.bio || '',
-      languages,
-      expertiseAreas,
-      services,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    };
+// Fetch users from Firestore
+app.get('/users', async (req, res) => {
+    try {
+        const usersRef = db.collection('users');
+        const snapshot = await usersRef.get();
 
-    // Handle image upload if present
-    if (req.file) {
-      try {
-        const fileExtension = req.file.originalname.split('.').pop();
-        const fileName = `profileImages/${uuidv4()}.${fileExtension}`;
-        const file = bucket.file(fileName);
+        if (snapshot.empty) {
+            return res.status(404).send('No users found');
+        }
 
-        // Create write stream
-        const blobStream = file.createWriteStream({
-          metadata: {
-            contentType: req.file.mimetype
-          },
-          resumable: false
+        const users = [];
+        snapshot.forEach((doc) => {
+            users.push({ id: doc.id, ...doc.data() });
         });
 
-        // Handle upload using Promise
-        await new Promise((resolve, reject) => {
-          blobStream.on('error', (error) => {
-            console.error('Upload error:', error);
-            reject(error);
-          });
-
-          blobStream.on('finish', async () => {
-            // Make file public
-            await file.makePublic();
-            
-            // Get public URL
-            const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-            documentData.profileImageUrl = publicUrl;
-            resolve();
-          });
-
-          // Write file
-          blobStream.end(req.file.buffer);
-        });
-
-      } catch (uploadError) {
-        console.error('Image upload error11111:', uploadError);
-        return res.status(500).json({
-          error: 'Image upload failed',
-          details: uploadError.message
-        });
-      }
+        res.status(200).json(users);
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).send('Internal Server Error');
     }
-
-    // Save to Firestore
-    const docRef = await db.collection('astro_pandit').add(documentData);
-
-    // Return success response
-    res.status(201).json({
-      message: 'Application submitted successfully1111!',
-      id: docRef.id,
-      data: documentData
-    });
-
-  } catch (error) {
-    console.error('Error in onboarding11111:', error);
-    res.status(500).json({
-      error: 'Failed to submit application11111',
-      details: error.message
-    });
-  }
 });
+
+// New route for Prokerala API
 
 
 // astro pandit app
 
-
+app.post('/onboard',upload.none(), async (req, res) => {
+    try {
+      // Log the request body to debug
+      console.log('Received data:', req.body);
+  
+      const formData = req.body;
+  
+      // Parse JSON fields if they exist
+      const languages = formData.languages ? JSON.parse(formData.languages) : [];
+      const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
+      const services = formData.services ? JSON.parse(formData.services) : [];
+  
+      // Prepare document data
+      const documentData = {
+        name: formData.name || '',
+        title: formData.title || '',
+        email: formData.email || '',
+        phone: formData.phone || '',
+        location: formData.location || '',
+        experience: formData.experience || '',
+        bio: formData.bio || '',
+        languages,
+        expertiseAreas,
+        services,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+  
+      // Save data to Firestore
+      const docRef = await db.collection('astro_pandit').add(documentData);
+  
+      res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
+    } catch (error) {
+      console.error('Error saving data:', error);
+      res.status(500).send('Failed to submit application');
+    }
+  });
   
   // API endpoint to fetch all records from the "astro_pandit" collection
   app.get('/astro_pandit', async (req, res) => {
