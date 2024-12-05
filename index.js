@@ -18,6 +18,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 admin.initializeApp({
     credential: admin.credential.applicationDefault(),
     databaseURL: 'https://ascendant-idea-443107-f8.firebaseio.com',
+    storageBucket: 'ascendant-idea-443107-f8.appspot.com'
 });
 
 const db = admin.firestore();
@@ -54,7 +55,7 @@ app.get('/health', (req, res) => {
 app.post('/onboard', upload.single('profileImage'), async (req, res) => {
   try {
     // Log the request body to debug
-    console.log('Received data:', req.body);
+    //console.log('Received data:', req.body);
 
     const formData = req.body;
 
@@ -80,7 +81,8 @@ app.post('/onboard', upload.single('profileImage'), async (req, res) => {
 
     // Handle image upload
     if (req.file) {
-      const bucket = admin.storage().bucket('gs://ascendant-idea-443107-f8.appspot.com'); // Reference to Firebase Storage bucket
+      const bucket = admin.storage().bucket(); // Reference to Firebase Storage bucket
+      console.log('bucket',bucket)
       const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
       const file = bucket.file(fileName);
 
