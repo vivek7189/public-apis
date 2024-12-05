@@ -6,123 +6,105 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const multer = require('multer');
 
-// enable cors options
-// const corsOptions = {
-//     origin: 'https://vedbhakti.in', // Replace with your domain
-//   };
-
-  app.use(cors());
-  app.use(bodyParser.json()); // Parse JSON bodies
+// Enable CORS
+app.use(cors());
+app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-// Initialize Firebase Admin SDK
+
+// Initialize Firebase Admin SDK with explicit credentials
+//const serviceAccount = require('./path-to-your-serviceAccount.json'); // Make sure this path is correct
 admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    databaseURL: 'https://ascendant-idea-443107-f8.firebaseio.com',
+    credential: admin.credential.applicationDefault(), // Use cert instead of applicationDefault
     storageBucket: 'ascendant-idea-443107-f8.appspot.com'
 });
 
-const db = admin.firestore(); // Firestore reference
-const storage = admin.storage(); // Firebase Storage reference
-const bucket = admin.storage().bucket();
-console.log('Default bucket name:', bucket.name);
-// const upload = multer({
-//   storage: multer.memoryStorage(), // Store the image in memory
-//   limits: { fileSize: 1024 * 1024 * 5 }, // Limit file size to 5MB
-//   fileFilter: (req, file, cb) => {
-//     if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
-//       cb(null, true);
-//     } else {
-//       cb(new Error('Only JPEG and PNG images are allowed'));
-//     }
-//   },
-// });
-const PORT = 8080;
+const db = admin.firestore();
+const bucket = admin.storage().bucket(); // Initialize bucket once
 
-// Prokerala API Credentials
-// const CLIENT_ID = '39abd687-3d3a-4311-8026-2871736cde56'; // Replace with your Client ID
-// const CLIENT_SECRET = 'q9YHkQ1LAXx4JDRavekz853wP3g56gbikck3qUcU'; // Replace with your Client Secret
-// const API_URL = 'https://api.prokerala.com/';
-
-
-const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory temporarily
-
-
-
-
-
-// Routes
-app.get('/', (req, res) => {
-    res.send('Hello, Cloud Run!');
+// Configure multer with file size limits
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    }
 });
-
-app.get('/hello', (req, res) => {
-    res.send('Hello, Cloud Run! hello boy');
-});
-
-app.get('/health', (req, res) => {
-    res.send('API running fine');
-});
-
-// Fetch users from Firestore
-
 
 app.post('/onboard', upload.single('profileImage'), async (req, res) => {
-  try {
-    // Log the request body for debugging
-    console.log('Received data:', req.body);
+    try {
+        console.log('Received data:', req.body);
 
-    const formData = req.body;
+        const formData = req.body;
 
-    // Parse JSON fields if they exist
-    const languages = formData.languages ? JSON.parse(formData.languages) : [];
-    const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
-    const services = formData.services ? JSON.parse(formData.services) : [];
+        // Parse JSON fields if they exist
+        const languages = formData.languages ? JSON.parse(formData.languages) : [];
+        const expertiseAreas = formData.expertiseAreas ? JSON.parse(formData.expertiseAreas) : [];
+        const services = formData.services ? JSON.parse(formData.services) : [];
 
-    // Prepare document data for Firestore
-    const documentData = {
-      name: formData.name || '',
-      title: formData.title || '',
-      email: formData.email || '',
-      phone: formData.phone || '',
-      location: formData.location || '',
-      experience: formData.experience || '',
-      bio: formData.bio || '',
-      languages,
-      expertiseAreas,
-      services,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
+        // Prepare document data
+        const documentData = {
+            name: formData.name || '',
+            title: formData.title || '',
+            email: formData.email || '',
+            phone: formData.phone || '',
+            location: formData.location || '',
+            experience: formData.experience || '',
+            bio: formData.bio || '',
+            languages,
+            expertiseAreas,
+            services,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
 
-    // Handle image upload
-    if (req.file) {
-      const bucket = admin.storage().bucket(); // Reference to Firebase Storage bucket
-      const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
-      const file = bucket.file(fileName);
+        // Handle image upload
+        if (req.file) {
+            try {
+                const fileName = `profileImages/${Date.now()}-${req.file.originalname}`;
+                const file = bucket.file(fileName);
 
-      // Upload image to Firebase Storage
-      await file.save(req.file.buffer, {
-        metadata: { contentType: req.file.mimetype },
-      });
+                // Create write stream for upload
+                const blobStream = file.createWriteStream({
+                    metadata: {
+                        contentType: req.file.mimetype
+                    },
+                    resumable: false // Set to false for small files
+                });
 
-      // Get public download URL with expiration
-      const [url] = await file.getSignedUrl({
-        action: 'read',
-        expires: '03-01-2030', // Set an expiry date for the signed URL
-      });
+                // Handle upload errors
+                return new Promise((resolve, reject) => {
+                    blobStream.on('error', (error) => {
+                        console.error('Upload error:', error);
+                        reject(error);
+                    });
 
-      // Add image URL to Firestore document data
-      documentData.profileImageUrl = url;
+                    blobStream.on('finish', async () => {
+                        // Make the file public
+                        await file.makePublic();
+                        
+                        // Get the public URL
+                        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+                        documentData.profileImageUrl = publicUrl;
+                        
+                        // Save to Firestore
+                        const docRef = await db.collection('astro_pandit').add(documentData);
+                        resolve({ message: 'Application submitted successfully!', id: docRef.id });
+                    });
+
+                    // Write the file
+                    blobStream.end(req.file.buffer);
+                });
+            } catch (uploadError) {
+                console.error('Error in image upload:', uploadError);
+                return res.status(500).json({ error: 'Failed to upload image' });
+            }
+        } else {
+            // Save to Firestore without image
+            const docRef = await db.collection('astro_pandit').add(documentData);
+            return res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
+        }
+    } catch (error) {
+        console.error('Error saving data:', error);
+        return res.status(500).json({ error: 'Failed to submit application', details: error.message });
     }
-
-    // Save data to Firestore (astro_pandit collection)
-    const docRef = await db.collection('astro_pandit').add(documentData);
-
-    // Send success response with the Firestore document ID
-    res.status(201).json({ message: 'Application submitted successfully!', id: docRef.id });
-  } catch (error) {
-    console.error('Error saving data:', error);
-    res.status(500).send('Failed to submit application');
-  }
 });
 
 
