@@ -207,7 +207,11 @@ app.get('/astro_pandit', async (req, res) => {
         }
       });
   
-      const panchangData = data?.Panchang;
+      const panchangData = {
+        Panchang:data?.Panchang,
+        SunriseMoonrise:data?.SunriseMoonrise,
+        Muhurat:data?.Muhurat
+      };
   
       if (!panchangData) {
         return res.status(500).json({ error: 'Panchang data is missing in the API response' });
