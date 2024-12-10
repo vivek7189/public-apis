@@ -6,16 +6,16 @@ const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const axios = require('axios');
 const app = express();
-//app.use(cors());
+app.use(cors());
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
-app.use(express.static('public'));
-app.use(cors({
-  origin: 'http://localhost:8080',  // Replace with your front-end URL
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
-}));
+//app.use(express.static('public'));
+// app.use(cors({
+//   origin: 'http://localhost:8080',  // Replace with your front-end URL
+//   methods: ['GET', 'POST'],
+//   allowedHeaders: ['Content-Type']
+// }));
 
 // Initialize Storage with application default credentials
 const storage = new Storage();
