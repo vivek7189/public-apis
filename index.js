@@ -6,10 +6,16 @@ const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const axios = require('axios');
 const app = express();
-app.use(cors());
+//app.use(cors());
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
+app.use(express.static('public'));
+app.use(cors({
+  origin: 'http://localhost:8080',  // Replace with your front-end URL
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
 
 // Initialize Storage with application default credentials
 const storage = new Storage();
@@ -22,10 +28,10 @@ initializeApp({
 
 const db = getFirestore();
 
-// Routes
-app.get('/', (req, res) => {
-    res.send('Hello, Cloud Run!');
-});
+// // Routes
+// app.get('/', (req, res) => {
+//     res.send('Hello, Cloud Run!');
+// });
 
 app.get('/hello', (req, res) => {
     res.send('Hello, Cloud Run! hello boy');
@@ -232,6 +238,9 @@ app.get('/astro_pandit', async (req, res) => {
   });
 // Start the server
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
+const server=app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+require('./chat')(app, server);
+require('./user/index')(app, server);
