@@ -181,6 +181,55 @@ app.get('/astro_pandit', async (req, res) => {
   }
 });
   
+app.get('/astro_pandit/:phoneNumber', async (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+
+    // Input validation
+    if (!phoneNumber || !/^\d{10}$/.test(phoneNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid 10-digit phone number'
+      });
+    }
+
+    const panditsRef = db.collection('astro_pandit');
+    const snapshot = await panditsRef
+      .where('phone', '==', phoneNumber)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        message: 'No astrologer found with this phone number'
+      });
+    }
+
+    // Get the first matching document
+    const panditDoc = snapshot.docs[0];
+    const panditData = {
+      id: panditDoc.id,
+      ...panditDoc.data(),
+      // Remove sensitive information if any
+      password: undefined,
+      private_notes: undefined
+    };
+
+    res.status(200).json({
+      success: true,
+      data: panditData
+    });
+
+  } catch (error) {
+    console.error('Error fetching astrologer profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
   // astro pandi app
 
 
