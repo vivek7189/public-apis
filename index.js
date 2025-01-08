@@ -391,6 +391,7 @@ const scheduleNewMeeting = async (req, res) => {
       notes='', 
       selectedDate="2025-01-17T18:30:00.000Z", 
       selectedTime="12:00 PM",  // Email of the pandit whose calendar we're using
+      timeZone
     } = req.body;
 
     // Get  tokens from Firestore
@@ -430,34 +431,38 @@ const scheduleNewMeeting = async (req, res) => {
 
     // Parse time
     const [timeStr, period] = selectedTime.split(' ');
-    let [hours, minutes] = timeStr.split(':').map(Number);
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
+      let [hours, minutes] = timeStr.split(':').map(Number);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
 
-    const startTime = moment(selectedDate).hours(hours).minutes(minutes);
-    const endTime = moment(startTime).add(1, 'hour');
+      // Create a new moment object using the provided timezone
+      const startTime = moment.tz(selectedDate, timeZone)
+        .startOf('day')
+        .hours(hours)
+        .minutes(minutes);
 
-    // Create calendar event
-    const eventDetails = {
-      summary: `Consultation with ${name}`,
-      description: notes || 'No additional notes',
-      start: {
-        dateTime: startTime.toISOString(),
-        timeZone: 'UTC'
-      },
-      end: {
-        dateTime: endTime.toISOString(),
-        timeZone: 'UTC'
-      },
-      attendees: [{ email }],
-      conferenceData: {
-        createRequest: {
-          requestId: `${Date.now()}`,
-          conferenceSolutionKey: { type: 'hangoutsMeet' }
-        }
-      },
-      sendUpdates: 'all'
-    };
+      const endTime = moment(startTime).add(1, 'hour');
+
+      const eventDetails = {
+        summary: `Consultation with ${name}`,
+        description: notes || 'No additional notes',
+        start: {
+          dateTime: startTime.toISOString(),
+          timeZone: timeZone  // Use the client's timezone
+        },
+        end: {
+          dateTime: endTime.toISOString(),
+          timeZone: timeZone
+        },
+        attendees: [{ email }],
+        conferenceData: {
+          createRequest: {
+            requestId: `${Date.now()}`,
+            conferenceSolutionKey: { type: 'hangoutsMeet' }
+          }
+        },
+        sendUpdates: 'all'
+      };
 //console.log('heloooooooo33333');
     let calendarResponse;
     try {
@@ -472,25 +477,24 @@ const scheduleNewMeeting = async (req, res) => {
     }
 
     //Prepare and send confirmation email
-    const emailContent = `
-              From: me
-              To: ${email}
-              Subject: Consultation Confirmation
-              Content-Type: text/html; charset=utf-8
-              MIME-Version: 1.0
-
-              <html>
-                <body>
-                  <h2>Consultation Confirmation</h2>
-                  <p>Hello ${name},</p>
-                  <p>Your consultation has been scheduled successfully.</p>
-                  <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
-                  <p><strong>Time:</strong> ${selectedTime}</p>
-                  <p><strong>Meeting Link:</strong> ${'--'}</p>
-                  <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
-                  <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
-                </body>
-              </html>`;
+    const emailContent = `From: me
+    To: ${email}
+    Subject: Consultation Confirmation
+    Content-Type: text/html; charset=utf-8
+    MIME-Version: 1.0
+    
+    <html>
+      <body>
+        <h2>Consultation Confirmation</h2>
+        <p>Hello ${name},</p>
+        <p>Your consultation has been scheduled successfully.</p>
+        <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
+        <p><strong>Time:</strong> ${selectedTime}</p>
+        <p><strong>Meeting Link:</strong> ${calendarResponse?.data?.hangoutLink || '--'}</p>
+        <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+        <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
+      </body>
+    </html>`;
 
               const encodedEmail = Buffer.from(emailContent)
               .toString('base64')
