@@ -1,13 +1,18 @@
 const express = require('express');
 const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
-const cors = require('cors');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { google } = require('googleapis');
+const moment = require('moment');
+const cors = require('cors');
+
 const axios = require('axios');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+
 
 const upload = multer({ storage: multer.memoryStorage() });
 //app.use(express.static('public'));
@@ -363,4 +368,173 @@ const generateCalendarUrl = (name) => {
   
   return `${cleanName}${Math.random().toString(36).substr(2, 6)}`;
 };
+
+
+
+const scheduleNewMeeting = async (req, res) => {
+  try {
+    const { 
+      name, 
+      email, 
+      notes, 
+      selectedDate, 
+      selectedTime,  // Email of the pandit whose calendar we're using
+    } = req.body;
+
+    // Get pandit's tokens from Firestore
+    const panditDoc = await db.collection('meetflow_user_data').doc(email).get();
+    if (!panditDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'Pandit not found'
+      });
+    }
+
+    const pandit = panditDoc.data();
+
+    // Initialize OAuth client
+    const oauth2Client = new google.auth.OAuth2(
+      '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
+      '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',
+      ''
+    );
+
+    // Set credentials from Firestore
+    oauth2Client.setCredentials({
+      access_token: pandit.accessToken,
+    });
+
+    // Initialize Google services
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    // Parse time
+    const [timeStr, period] = selectedTime.split(' ');
+    let [hours, minutes] = timeStr.split(':').map(Number);
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+
+    const startTime = moment(selectedDate).hours(hours).minutes(minutes);
+    const endTime = moment(startTime).add(1, 'hour');
+
+    // Create calendar event
+    const eventDetails = {
+      summary: `Consultation with ${name}`,
+      description: notes || 'No additional notes',
+      start: {
+        dateTime: startTime.toISOString(),
+        timeZone: 'UTC'
+      },
+      end: {
+        dateTime: endTime.toISOString(),
+        timeZone: 'UTC'
+      },
+      attendees: [{ email }],
+      conferenceData: {
+        createRequest: {
+          requestId: `${Date.now()}`,
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
+        }
+      },
+      sendUpdates: 'all'
+    };
+
+    let calendarResponse;
+    try {
+      calendarResponse = await calendar.events.insert({
+        calendarId: 'primary',
+        conferenceDataVersion: 1,
+        requestBody: eventDetails
+      });
+    } catch (error) {
+      if (error.code === 401) {
+        // Token expired, refresh it
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        
+        // Update tokens in Firestore
+        await db.collection('meetflow_user_data').doc(email).update({
+          accessToken: credentials.access_token,
+          lastUpdated: new Date()
+        });
+
+        // Retry with new token
+        oauth2Client.setCredentials(credentials);
+        calendarResponse = await calendar.events.insert({
+          calendarId: 'primary',
+          conferenceDataVersion: 1,
+          requestBody: eventDetails
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    // Prepare and send confirmation email
+    const emailContent = `
+      Content-Type: text/html; charset=utf-8
+      MIME-Version: 1.0
+      To: ${email}
+      Subject: Consultation Confirmation with ${pandit.name}
+      
+      <html>
+        <body>
+          <h2>Consultation Confirmation</h2>
+          <p>Hello ${name},</p>
+          <p>Your consultation has been scheduled successfully.</p>
+          <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
+          <p><strong>Time:</strong> ${selectedTime}</p>
+          <p><strong>Meeting Link:</strong> ${calendarResponse.data.hangoutLink || '--'}</p>
+          <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+          <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
+          <p>Best regards,<br>${pandit.name}</p>
+        </body>
+      </html>
+    `;
+
+    const encodedEmail = Buffer.from(emailContent)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedEmail
+      }
+    });
+
+    // Save meeting details in Firestore (optional)
+    // await db.collection('meetings').add({
+    //   email,
+    //   clientName: name,
+    //   clientEmail: email,
+    //   meetingId: calendarResponse.data.id,
+    //   meetingLink: calendarResponse.data.hangoutLink,
+    //   startTime: startTime.toDate(),
+    //   endTime: endTime.toDate(),
+    //   notes,
+    //   createdAt: new Date()
+    // });
+
+    res.status(200).json({
+      success: true,
+      meetingDetails: {
+        id: calendarResponse.data.id,
+        meetingLink: calendarResponse?.data?.hangoutLink,
+        startTime: startTime.format(),
+        endTime: endTime.format()
+      }
+    });
+
+  } catch (error) {
+    console.error('Meeting scheduling error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to schedule meeting'
+    });
+  }
+};
+
+app.post('/schedule-meeting', scheduleNewMeeting);
 // APIs end for meetflow
