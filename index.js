@@ -383,15 +383,21 @@ const scheduleNewMeeting = async (req, res) => {
     } = req.body;
 
     // Get  tokens from Firestore
-    const panditDoc = await db.collection('meetflow_user_data').doc(userEmail).get();
-    if (!panditDoc.exists) {
-      return res.status(404).json({
-        success: false,
-        error: 'user not found'
-      });
-    }
+    const userSnapshot = await db.collection('meetflow_user_data')
+    .where('email', '==', userEmail)
+    .limit(1)  // Since we only need one document
+    .get();
 
-    const pandit = panditDoc.data();
+  if (userSnapshot.empty) {
+    return res.status(404).json({
+      success: false,
+      error: 'User not found'
+    });
+  }
+
+  // Get the first (and should be only) document
+  const panditDoc = userSnapshot.docs[0];
+  const userData = panditDoc.data();
 
     // Initialize OAuth client
     const oauth2Client = new google.auth.OAuth2(
@@ -402,7 +408,7 @@ const scheduleNewMeeting = async (req, res) => {
 
     // Set credentials from Firestore
     oauth2Client.setCredentials({
-      access_token: pandit.accessToken,
+      access_token: userData.accessToken,
     });
 
     // Initialize Google services
