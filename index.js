@@ -379,14 +379,15 @@ const scheduleNewMeeting = async (req, res) => {
       notes, 
       selectedDate, 
       selectedTime,  // Email of the pandit whose calendar we're using
+      userEmail
     } = req.body;
 
-    // Get pandit's tokens from Firestore
-    const panditDoc = await db.collection('meetflow_user_data').doc(email).get();
+    // Get  tokens from Firestore
+    const panditDoc = await db.collection('meetflow_user_data').doc(userEmail).get();
     if (!panditDoc.exists) {
       return res.status(404).json({
         success: false,
-        error: 'Pandit not found'
+        error: 'user not found'
       });
     }
 
@@ -452,7 +453,7 @@ const scheduleNewMeeting = async (req, res) => {
         const { credentials } = await oauth2Client.refreshAccessToken();
         
         // Update tokens in Firestore
-        await db.collection('meetflow_user_data').doc(email).update({
+        await db.collection('meetflow_user_data').doc(userEmail).update({
           accessToken: credentials.access_token,
           lastUpdated: new Date()
         });
@@ -522,8 +523,8 @@ const scheduleNewMeeting = async (req, res) => {
       meetingDetails: {
         id: calendarResponse.data.id,
         meetingLink: calendarResponse?.data?.hangoutLink,
-        startTime: startTime.format(),
-        endTime: endTime.format()
+        startTime: startTime?.format(),
+        endTime: endTime?.format()
       }
     });
 
