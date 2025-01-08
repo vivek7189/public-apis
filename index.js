@@ -301,13 +301,16 @@ require('./user/index')(app, server);
 
 app.post('/meetflow/user', async (req, res) => {
   try {
-    const { 
-      email, 
-      name, 
-      picture, 
-      uid, 
+    const {
+      email,
+      name,
+      picture,
+      uid,
       accessToken,
+      refreshToken  // Make sure to get this from req.body too
     } = req.body;
+
+ 
 
     // First check if user exists by email
     const usersRef = db.collection('meetflow_user_data');
@@ -315,8 +318,6 @@ app.post('/meetflow/user', async (req, res) => {
       .where('email', '==', email)
       .limit(1)
       .get();
-
-    //const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
     if (userSnapshot.empty) {
       // New user - Create new document
@@ -326,36 +327,48 @@ app.post('/meetflow/user', async (req, res) => {
         picture,
         uid,
         accessToken,
-        calendarUrl:generateCalendarUrl(name),
+        refreshToken,  // Save refresh token for new users
+        calendarUrl: generateCalendarUrl(name),
+        lastUpdated: new Date(),
+        createdAt: new Date()
       });
 
-
-      res.json({ 
-        success: true, 
-        message: 'New User saved' 
+      res.json({
+        success: true,
+        message: 'New User saved'
       });
     } else {
-      // Existing user - Update the document
+      // Existing user - Always update tokens
       const userDoc = userSnapshot.docs[0];
       
-      await userDoc.ref.update({
+      const updateData = {
         name,
         picture,
         uid,
-        accessToken,
-        // Note: Not updating calendarUrl for existing users
-      });
+        lastUpdated: new Date()
+      };
 
-      res.json({ 
-        success: true, 
-        message: 'User updated successfully' 
+      // Only update tokens if they are present in the request
+      if (accessToken) {
+        console.log('update the token');
+        updateData.accessToken = accessToken;
+      }
+
+
+      await userDoc.ref.update(updateData);
+
+
+
+      res.json({
+        success: true,
+        message: 'User updated successfully'
       });
     }
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to register/update user',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -371,20 +384,21 @@ const generateCalendarUrl = (name) => {
 
 
 
+
 const scheduleNewMeeting = async (req, res) => {
   try {
     const { 
-      name, 
-      email, 
-      notes, 
-      selectedDate, 
-      selectedTime,  // Email of the pandit whose calendar we're using
+      name="dfsdfsd", 
+      email="vivekkumar7189@gmail.com", 
+      notes='', 
+      selectedDate="2025-01-17T18:30:00.000Z", 
+      selectedTime="12:00 PM",  // Email of the pandit whose calendar we're using
       userEmail
     } = req.body;
 
     // Get  tokens from Firestore
     const userSnapshot = await db.collection('meetflow_user_data')
-    .where('email', '==', userEmail)
+    .where('email', '==', 'malik.vk07@gmail.com')
     .limit(1)  // Since we only need one document
     .get();
 
@@ -397,15 +411,17 @@ const scheduleNewMeeting = async (req, res) => {
 
   // Get the first (and should be only) document
   const panditDoc = userSnapshot.docs[0];
+  //console.log('panditDoc',panditDoc);
   const userData = panditDoc.data();
-
+//console.log('userData',userData);
     // Initialize OAuth client
     const oauth2Client = new google.auth.OAuth2(
       '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
       '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',
       ''
     );
-
+    console.log('userData',userData.accessToken);
+  
     // Set credentials from Firestore
     oauth2Client.setCredentials({
       access_token: userData.accessToken,
@@ -445,7 +461,7 @@ const scheduleNewMeeting = async (req, res) => {
       },
       sendUpdates: 'all'
     };
-
+console.log('heloooooooo33333');
     let calendarResponse;
     try {
       calendarResponse = await calendar.events.insert({
@@ -454,62 +470,63 @@ const scheduleNewMeeting = async (req, res) => {
         requestBody: eventDetails
       });
     } catch (error) {
-      if (error.code === 401) {
-        // Token expired, refresh it
-        const { credentials } = await oauth2Client.refreshAccessToken();
+      console.log('dsadada',error);
+      // if (error.code === 401) {
+      //   // Token expired, refresh it
+      //   const { credentials } = await oauth2Client.refreshAccessToken();
         
-        // Update tokens in Firestore
-        await db.collection('meetflow_user_data').doc(userEmail).update({
-          accessToken: credentials.access_token,
-          lastUpdated: new Date()
-        });
+      //   // Update tokens in Firestore
+      //   await db.collection('meetflow_user_data').doc(userEmail).update({
+      //     accessToken: credentials.access_token,
+      //     lastUpdated: new Date()
+      //   });
 
-        // Retry with new token
-        oauth2Client.setCredentials(credentials);
-        calendarResponse = await calendar.events.insert({
-          calendarId: 'primary',
-          conferenceDataVersion: 1,
-          requestBody: eventDetails
-        });
-      } else {
-        throw error;
-      }
+      //   // Retry with new token
+      //   oauth2Client.setCredentials(credentials);
+      //   calendarResponse = await calendar.events.insert({
+      //     calendarId: 'primary',
+      //     conferenceDataVersion: 1,
+      //     requestBody: eventDetails
+      //   });
+      // } else {
+      //   throw error;
+      // }
     }
 
     // Prepare and send confirmation email
-    const emailContent = `
-      Content-Type: text/html; charset=utf-8
-      MIME-Version: 1.0
-      To: ${email}
-      Subject: Consultation Confirmation with ${pandit.name}
+    // const emailContent = `
+    //   Content-Type: text/html; charset=utf-8
+    //   MIME-Version: 1.0
+    //   To: ${email}
+    //   Subject: Consultation Confirmation with ${pandit.name}
       
-      <html>
-        <body>
-          <h2>Consultation Confirmation</h2>
-          <p>Hello ${name},</p>
-          <p>Your consultation has been scheduled successfully.</p>
-          <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
-          <p><strong>Time:</strong> ${selectedTime}</p>
-          <p><strong>Meeting Link:</strong> ${calendarResponse.data.hangoutLink || '--'}</p>
-          <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
-          <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
-          <p>Best regards,<br>${pandit.name}</p>
-        </body>
-      </html>
-    `;
+    //   <html>
+    //     <body>
+    //       <h2>Consultation Confirmation</h2>
+    //       <p>Hello ${name},</p>
+    //       <p>Your consultation has been scheduled successfully.</p>
+    //       <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
+    //       <p><strong>Time:</strong> ${selectedTime}</p>
+    //       <p><strong>Meeting Link:</strong> ${calendarResponse.data.hangoutLink || '--'}</p>
+    //       <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+    //       <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
+    //       <p>Best regards,<br>${pandit.name}</p>
+    //     </body>
+    //   </html>
+    // `;
 
-    const encodedEmail = Buffer.from(emailContent)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
+    // const encodedEmail = Buffer.from(emailContent)
+    //   .toString('base64')
+    //   .replace(/\+/g, '-')
+    //   .replace(/\//g, '_')
+    //   .replace(/=+$/, '');
 
-    await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedEmail
-      }
-    });
+    // await gmail.users.messages.send({
+    //   userId: 'me',
+    //   requestBody: {
+    //     raw: encodedEmail
+    //   }
+    // });
 
     // Save meeting details in Firestore (optional)
     // await db.collection('meetings').add({
@@ -527,10 +544,7 @@ const scheduleNewMeeting = async (req, res) => {
     res.status(200).json({
       success: true,
       meetingDetails: {
-        id: calendarResponse.data.id,
-        meetingLink: calendarResponse?.data?.hangoutLink,
-        startTime: startTime?.format(),
-        endTime: endTime?.format()
+        data:calendarResponse
       }
     });
 
