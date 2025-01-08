@@ -383,8 +383,6 @@ const generateCalendarUrl = (name) => {
 };
 
 
-
-
 const scheduleNewMeeting = async (req, res) => {
   try {
     const { 
@@ -393,7 +391,6 @@ const scheduleNewMeeting = async (req, res) => {
       notes='', 
       selectedDate="2025-01-17T18:30:00.000Z", 
       selectedTime="12:00 PM",  // Email of the pandit whose calendar we're using
-      userEmail
     } = req.body;
 
     // Get  tokens from Firestore
@@ -424,7 +421,7 @@ const scheduleNewMeeting = async (req, res) => {
   
     // Set credentials from Firestore
     oauth2Client.setCredentials({
-      access_token: userData.accessToken,
+      access_token: 'ya29.a0ARW5m75LWFb4dSGdYXWVlIaWRrvsI9lCgVQlZOed3AkWrd5q81d8WDAfeCxMDFf-1VowJAW_z4UCDyMrjwlfTBqneyLjgeNgw1dRBQPWdIFv6-C6xeLAeTgBaAzaj_QTq25JeGqTSnVQj4wkPpSv__WG3SWS7T_7ehpE7yTAaCgYKAVoSARASFQHGX2MiSgUWM296YOPPXS1Qus0dOQ0175'//userData.accessToken,
     });
 
     // Initialize Google services
@@ -498,7 +495,7 @@ console.log('heloooooooo33333');
     //   Content-Type: text/html; charset=utf-8
     //   MIME-Version: 1.0
     //   To: ${email}
-    //   Subject: Consultation Confirmation with ${pandit.name}
+    //   Subject: Consultation Confirmation with
       
     //   <html>
     //     <body>
@@ -507,10 +504,10 @@ console.log('heloooooooo33333');
     //       <p>Your consultation has been scheduled successfully.</p>
     //       <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
     //       <p><strong>Time:</strong> ${selectedTime}</p>
-    //       <p><strong>Meeting Link:</strong> ${calendarResponse.data.hangoutLink || '--'}</p>
+    //       <p><strong>Meeting Link:</strong> ${'--'}</p>
     //       <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
     //       <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
-    //       <p>Best regards,<br>${pandit.name}</p>
+          
     //     </body>
     //   </html>
     // `;
