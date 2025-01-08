@@ -458,7 +458,7 @@ const scheduleNewMeeting = async (req, res) => {
       },
       sendUpdates: 'all'
     };
-console.log('heloooooooo33333');
+//console.log('heloooooooo33333');
     let calendarResponse;
     try {
       calendarResponse = await calendar.events.insert({
@@ -468,62 +468,42 @@ console.log('heloooooooo33333');
       });
     } catch (error) {
       console.log('dsadada',error);
-      // if (error.code === 401) {
-      //   // Token expired, refresh it
-      //   const { credentials } = await oauth2Client.refreshAccessToken();
-        
-      //   // Update tokens in Firestore
-      //   await db.collection('meetflow_user_data').doc(userEmail).update({
-      //     accessToken: credentials.access_token,
-      //     lastUpdated: new Date()
-      //   });
-
-      //   // Retry with new token
-      //   oauth2Client.setCredentials(credentials);
-      //   calendarResponse = await calendar.events.insert({
-      //     calendarId: 'primary',
-      //     conferenceDataVersion: 1,
-      //     requestBody: eventDetails
-      //   });
-      // } else {
-      //   throw error;
-      // }
+      
     }
 
     //Prepare and send confirmation email
     const emailContent = `
-      Content-Type: text/html; charset=utf-8
-      MIME-Version: 1.0
-      To: ${email}
-      Subject: Consultation Confirmation with
-      
-      <html>
-        <body>
-          <h2>Consultation Confirmation</h2>
-          <p>Hello ${name},</p>
-          <p>Your consultation has been scheduled successfully.</p>
-          <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
-          <p><strong>Time:</strong> ${selectedTime}</p>
-          <p><strong>Meeting Link:</strong> ${'--'}</p>
-          <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
-          <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
-          
-        </body>
-      </html>
-    `;
+              From: me
+              To: ${email}
+              Subject: Consultation Confirmation
+              Content-Type: text/html; charset=utf-8
+              MIME-Version: 1.0
 
-    const encodedEmail = Buffer.from(emailContent)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
+              <html>
+                <body>
+                  <h2>Consultation Confirmation</h2>
+                  <p>Hello ${name},</p>
+                  <p>Your consultation has been scheduled successfully.</p>
+                  <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
+                  <p><strong>Time:</strong> ${selectedTime}</p>
+                  <p><strong>Meeting Link:</strong> ${'--'}</p>
+                  <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+                  <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
+                </body>
+              </html>`;
 
-    await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedEmail
-      }
-    });
+              const encodedEmail = Buffer.from(emailContent)
+              .toString('base64')
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=+$/, '');
+
+              await gmail.users.messages.send({
+              userId: 'me',
+              requestBody: {
+                raw: encodedEmail
+              }
+              });
 
     // Save meeting details in Firestore (optional)
     // await db.collection('meetings').add({
