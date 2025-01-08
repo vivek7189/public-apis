@@ -301,8 +301,7 @@ app.post('/meetflow/user', async (req, res) => {
       name, 
       picture, 
       uid, 
-      accessToken, 
-      refreshToken, 
+      accessToken,
     } = req.body;
 
     // First check if user exists by email
@@ -322,7 +321,6 @@ app.post('/meetflow/user', async (req, res) => {
         picture,
         uid,
         accessToken,
-        refreshToken,
         calendarUrl:generateCalendarUrl(name),
       });
 
@@ -340,7 +338,6 @@ app.post('/meetflow/user', async (req, res) => {
         picture,
         uid,
         accessToken,
-        refreshToken,
         // Note: Not updating calendarUrl for existing users
       });
 
