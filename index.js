@@ -28,10 +28,7 @@ initializeApp({
 
 const db = getFirestore();
 
-// // Routes
-// app.get('/', (req, res) => {
-//     res.send('Hello, Cloud Run!');
-// });
+
 
 app.get('/hello', (req, res) => {
     res.send('Hello, Cloud Run! hello boy');
@@ -291,5 +288,82 @@ const server=app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-require('./chat')(app, server);
+// require('./chat')(app, server);
 require('./user/index')(app, server);
+
+
+// APIs start for meetflow
+
+app.post('/meetflow/user', async (req, res) => {
+  try {
+    const { 
+      email, 
+      name, 
+      picture, 
+      uid, 
+      accessToken, 
+      refreshToken, 
+    } = req.body;
+
+    // First check if user exists by email
+    const usersRef = db.collection('meetflow_user_data');
+    const userSnapshot = await usersRef
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    //const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+    if (userSnapshot.empty) {
+      // New user - Create new document
+      await usersRef.add({
+        email,
+        name,
+        picture,
+        uid,
+        accessToken,
+        refreshToken,
+        calendarUrl:generateCalendarUrl(name),
+      });
+
+
+      res.json({ 
+        success: true, 
+        message: 'New User saved' 
+      });
+    } else {
+      // Existing user - Update the document
+      const userDoc = userSnapshot.docs[0];
+      
+      await userDoc.ref.update({
+        name,
+        picture,
+        uid,
+        accessToken,
+        refreshToken,
+        // Note: Not updating calendarUrl for existing users
+      });
+
+      res.json({ 
+        success: true, 
+        message: 'User updated successfully' 
+      });
+    }
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ 
+      error: 'Failed to register/update user',
+      details: error.message 
+    });
+  }
+});
+
+// Helper function to generate unique calendar URL
+const generateCalendarUrl = (name) => {
+  const cleanName = name.toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '');
+  
+  return `${cleanName}${Math.random().toString(36).substr(2, 6)}`;
+};
+// APIs end for meetflow
