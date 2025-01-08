@@ -422,7 +422,7 @@ const scheduleNewMeeting = async (req, res) => {
   
     // Set credentials from Firestore
     oauth2Client.setCredentials({
-      access_token: 'ya29.a0ARW5m75LWFb4dSGdYXWVlIaWRrvsI9lCgVQlZOed3AkWrd5q81d8WDAfeCxMDFf-1VowJAW_z4UCDyMrjwlfTBqneyLjgeNgw1dRBQPWdIFv6-C6xeLAeTgBaAzaj_QTq25JeGqTSnVQj4wkPpSv__WG3SWS7T_7ehpE7yTAaCgYKAVoSARASFQHGX2MiSgUWM296YOPPXS1Qus0dOQ0175'//userData.accessToken,
+      access_token: 'ya29.a0ARW5m771RbqfAjhVQW_6_ea70OD7EKIJLhtksPoFtveRK8kZIU62Keor0LTOi1Te71Y9UvnPbWK9pB-qxg4HGkTX85pbPtdTEOB41hwRdQ8P3nb5Agic9KhgaCUIgHvnte-rDR9G_l46OA9W4VvSYSht075zZ_hnH7nfDd1IaCgYKAUcSARASFQHGX2Mi0Wn5xUaPJhmo_7CYSV36zA0175'//userData.accessToken,
     });
 
     // Initialize Google services
