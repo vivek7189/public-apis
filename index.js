@@ -386,7 +386,7 @@ const generateCalendarUrl = (name) => {
 const scheduleNewMeeting = async (req, res) => {
   try {
     const { 
-      name="dfsdfsd", 
+      name="vivek", 
       email="vivekkumar7189@gmail.com", 
       notes='', 
       selectedDate="2025-01-17T18:30:00.000Z", 
@@ -490,40 +490,40 @@ console.log('heloooooooo33333');
       // }
     }
 
-    // Prepare and send confirmation email
-    // const emailContent = `
-    //   Content-Type: text/html; charset=utf-8
-    //   MIME-Version: 1.0
-    //   To: ${email}
-    //   Subject: Consultation Confirmation with
+    //Prepare and send confirmation email
+    const emailContent = `
+      Content-Type: text/html; charset=utf-8
+      MIME-Version: 1.0
+      To: ${email}
+      Subject: Consultation Confirmation with
       
-    //   <html>
-    //     <body>
-    //       <h2>Consultation Confirmation</h2>
-    //       <p>Hello ${name},</p>
-    //       <p>Your consultation has been scheduled successfully.</p>
-    //       <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
-    //       <p><strong>Time:</strong> ${selectedTime}</p>
-    //       <p><strong>Meeting Link:</strong> ${'--'}</p>
-    //       <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
-    //       <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
+      <html>
+        <body>
+          <h2>Consultation Confirmation</h2>
+          <p>Hello ${name},</p>
+          <p>Your consultation has been scheduled successfully.</p>
+          <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
+          <p><strong>Time:</strong> ${selectedTime}</p>
+          <p><strong>Meeting Link:</strong> ${'--'}</p>
+          <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+          <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
           
-    //     </body>
-    //   </html>
-    // `;
+        </body>
+      </html>
+    `;
 
-    // const encodedEmail = Buffer.from(emailContent)
-    //   .toString('base64')
-    //   .replace(/\+/g, '-')
-    //   .replace(/\//g, '_')
-    //   .replace(/=+$/, '');
+    const encodedEmail = Buffer.from(emailContent)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
 
-    // await gmail.users.messages.send({
-    //   userId: 'me',
-    //   requestBody: {
-    //     raw: encodedEmail
-    //   }
-    // });
+    await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedEmail
+      }
+    });
 
     // Save meeting details in Firestore (optional)
     // await db.collection('meetings').add({
