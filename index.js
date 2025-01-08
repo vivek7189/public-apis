@@ -4,7 +4,7 @@ const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { google } = require('googleapis');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const cors = require('cors');
 
 const axios = require('axios');
