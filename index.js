@@ -384,7 +384,7 @@ const generateCalendarUrl = (name) => {
 
 
 
-app.get('/schedule-meeting', async (req, res) => {
+app.post('/schedule-meeting', async (req, res) => {
   try {
     const {
       selectedDate="2025-01-30T18:30:00.000Z",
@@ -393,7 +393,6 @@ app.get('/schedule-meeting', async (req, res) => {
       email="vivekkumar7189@gmail.com",
       notes="dsdfs",
       timeZone='Asia/Calcutta',
-      panditEmail  // Assuming you'll send pandit's email
     } = req.body;
 
     // Get user's token from Firestore
@@ -472,7 +471,7 @@ app.get('/schedule-meeting', async (req, res) => {
     };
 
     // Get fresh access token (in case it expired)
-    const accessToken = 'ya29.a0ARW5m748TMopC5IPqoNr-ZhLnQjxzSjktHWFLYFE1mXR7rIAqxhtE9Wd-B9_DVgZyaEfqOPK0-BMiWV88yJAWBnxViVdKt7_skc15At3i_v2Nb7MHSUrBPcS2XXzZ9fh1ycMpNs0GL1BvnAdvGpYjX9eBy2np_HZt5Oq15TMaCgYKAXwSARASFQHGX2MizVLNg9fl6da17k7p5IdjhQ0175'//await oauth2Client.getAccessToken();
+    const accessToken = userData?.accessToken;//'ya29.a0ARW5m748TMopC5IPqoNr-ZhLnQjxzSjktHWFLYFE1mXR7rIAqxhtE9Wd-B9_DVgZyaEfqOPK0-BMiWV88yJAWBnxViVdKt7_skc15At3i_v2Nb7MHSUrBPcS2XXzZ9fh1ycMpNs0GL1BvnAdvGpYjX9eBy2np_HZt5Oq15TMaCgYKAXwSARASFQHGX2MizVLNg9fl6da17k7p5IdjhQ0175'//await oauth2Client.getAccessToken();
 
     // Create calendar event using Calendar API
     const calendarResponse = await fetch(
