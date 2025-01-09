@@ -404,25 +404,19 @@ async function getUserByEmail(email) {
   }
 }
 
-function parseAndFormatTime(selectedDate, selectedTime, timeZone) {
-  // Parse the time components
-  const [timeStr, period] = selectedTime.split(' ');
+function parseAndFormatTime(date, time, timeZone) {
+  // Parse time (e.g., "9:00 AM")
+  const [timeStr, period] = time.split(' ');
   let [hours, minutes] = timeStr.split(':').map(Number);
   
   // Convert to 24-hour format
   if (period === 'PM' && hours !== 12) hours += 12;
   if (period === 'AM' && hours === 12) hours = 0;
 
-  // Create date object from the selected date (which is in UTC)
-  const date = new Date(selectedDate);
+  // Combine date and time (date is already in YYYY-MM-DD format)
+  const dateTimeString = `${date}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000`;
   
-  // Get the date portion only in YYYY-MM-DD format
-  const dateString = date.toISOString().split('T')[0];
-  
-  // Create a new date string combining the date with the selected time
-  const dateTimeString = `${dateString}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000`;
-  
-  // Create the start time in the specified timezone
+  // Create the start time
   const startTime = new Date(dateTimeString);
   
   // Create end time (1 hour later)
@@ -432,24 +426,32 @@ function parseAndFormatTime(selectedDate, selectedTime, timeZone) {
   return { 
     startTime,
     endTime,
-    // Include formatted times for verification
-    formattedStart: startTime.toLocaleString('en-US', { timeZone, hour12: true }),
-    formattedEnd: endTime.toLocaleString('en-US', { timeZone, hour12: true })
+    // For debugging
+    formattedStart: startTime.toLocaleString('en-US', { 
+      timeZone,
+      hour12: true,
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric'
+    })
   };
 }
 
-// Update the event details creation
-function createEventDetails(name, email, startTime, endTime, timeZone, notes) {
+function createEventDetails(name, email, date, time, timeZone, notes) {
+  const { startTime, endTime } = parseAndFormatTime(date, time, timeZone);
+
   return {
     summary: `Meeting with ${name}`,
     description: notes || 'No additional notes',
     start: {
       dateTime: startTime.toISOString(),
-      timeZone // Using the provided timezone
+      timeZone
     },
     end: {
       dateTime: endTime.toISOString(),
-      timeZone // Using the provided timezone
+      timeZone
     },
     attendees: [{ email }],
     conferenceData: {
