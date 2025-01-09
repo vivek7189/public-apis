@@ -307,7 +307,7 @@ app.post('/meetflow/user', async (req, res) => {
       picture,
       uid,
       accessToken,
-      refreshToken  // Make sure to get this from req.body too
+      refreshToken="yhj"  // Make sure to get this from req.body too
     } = req.body;
 
  
@@ -350,7 +350,7 @@ app.post('/meetflow/user', async (req, res) => {
 
       // Only update tokens if they are present in the request
       if (accessToken) {
-        console.log('update the token');
+        console.log('update the token',accessToken);
         updateData.accessToken = accessToken;
       }
 
@@ -383,160 +383,193 @@ const generateCalendarUrl = (name) => {
 };
 
 
-const scheduleNewMeeting = async (req, res) => {
+
+
+app.get('/schedule-meeting', async (req, res) => {
   try {
-    const { 
-      name="vivek", 
-      email="vivekkumar7189@gmail.com", 
-      notes='', 
-      selectedDate="2025-01-17T18:30:00.000Z", 
-      selectedTime="12:00 PM",  // Email of the pandit whose calendar we're using
-      timeZone
+    const {
+      selectedDate="2025-01-30T18:30:00.000Z",
+      selectedTime="6:00 PM",
+      name="kap",
+      email="vivekkumar7189@gmail.com",
+      notes="dsdfs",
+      timeZone='Asia/Calcutta',
+      panditEmail  // Assuming you'll send pandit's email
     } = req.body;
 
-    // Get  tokens from Firestore
+    // Get user's token from Firestore
     const userSnapshot = await db.collection('meetflow_user_data')
     .where('email', '==', 'malik.vk07@gmail.com')
-    .limit(1)  // Since we only need one document
-    .get();
+      .limit(1)
+      .get();
 
-  if (userSnapshot.empty) {
-    return res.status(404).json({
-      success: false,
-      error: 'User not found'
-    });
-  }
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
 
-  // Get the first (and should be only) document
-  const panditDoc = userSnapshot.docs[0];
-  //console.log('panditDoc',panditDoc);
-  const userData = panditDoc.data();
-//console.log('userData',userData);
-    // Initialize OAuth client
+    const panditDoc = userSnapshot.docs[0];
+    const userData = panditDoc.data();
+
+    // Setup OAuth2 client
+    // const oauth2Client = new google.auth.OAuth2(
+    //   process.env.GOOGLE_CLIENT_ID,
+    //   process.env.GOOGLE_CLIENT_SECRET,
+    //   process.env.GOOGLE_REDIRECT_URI
+    // );
+    
+    // oauth2Client.setCredentials({
+    //   access_token: userData.accessToken,
+    //   refresh_token: userData.refreshToken,
+    //   expiry_date: userData.tokenExpiry
+    // });
+
     const oauth2Client = new google.auth.OAuth2(
       '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
       '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',
       ''
     );
-    console.log('userData',userData.accessToken);
+    //console.log('userData',userData.accessToken);
   
     // Set credentials from Firestore
     oauth2Client.setCredentials({
       access_token: 'ya29.a0ARW5m771RbqfAjhVQW_6_ea70OD7EKIJLhtksPoFtveRK8kZIU62Keor0LTOi1Te71Y9UvnPbWK9pB-qxg4HGkTX85pbPtdTEOB41hwRdQ8P3nb5Agic9KhgaCUIgHvnte-rDR9G_l46OA9W4VvSYSht075zZ_hnH7nfDd1IaCgYKAUcSARASFQHGX2Mi0Wn5xUaPJhmo_7CYSV36zA0175'//userData.accessToken,
     });
-
-    // Initialize Google services
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
     // Parse time
     const [timeStr, period] = selectedTime.split(' ');
-      let [hours, minutes] = timeStr.split(':').map(Number);
-      if (period === 'PM' && hours !== 12) hours += 12;
-      if (period === 'AM' && hours === 12) hours = 0;
+    let [hours, minutes] = timeStr.split(':').map(Number);
+    
+    // Convert to 24-hour format
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
 
-      // Create a new moment object using the provided timezone
-      const startTime = moment.tz(selectedDate, timeZone)
-        .startOf('day')
-        .hours(hours)
-        .minutes(minutes);
+    const startTime = new Date(selectedDate);
+    startTime.setHours(hours, minutes, 0);
+    const endTime = new Date(startTime);
+    endTime.setHours(startTime.getHours() + 1);
 
-      const endTime = moment(startTime).add(1, 'hour');
+    // Create calendar event
+    const eventDetails = {
+      summary: `Meeting with ${name}`,
+      description: notes || 'No additional notes',
+      start: {
+        dateTime: startTime.toISOString(),
+        timeZone: timeZone
+      },
+      end: {
+        dateTime: endTime.toISOString(),
+        timeZone: timeZone
+      },
+      attendees: [{ email }],
+      conferenceData: {
+        createRequest: {
+          requestId: Date.now().toString(),
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
+        }
+      },
+      sendUpdates: 'all'
+    };
 
-      const eventDetails = {
-        summary: `Consultation with ${name}`,
-        description: notes || 'No additional notes',
-        start: {
-          dateTime: startTime.toISOString(),
-          timeZone: timeZone  // Use the client's timezone
+    // Get fresh access token (in case it expired)
+    const accessToken = 'ya29.a0ARW5m748TMopC5IPqoNr-ZhLnQjxzSjktHWFLYFE1mXR7rIAqxhtE9Wd-B9_DVgZyaEfqOPK0-BMiWV88yJAWBnxViVdKt7_skc15At3i_v2Nb7MHSUrBPcS2XXzZ9fh1ycMpNs0GL1BvnAdvGpYjX9eBy2np_HZt5Oq15TMaCgYKAXwSARASFQHGX2MizVLNg9fl6da17k7p5IdjhQ0175'//await oauth2Client.getAccessToken();
+
+    // Create calendar event using Calendar API
+    const calendarResponse = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         },
-        end: {
-          dateTime: endTime.toISOString(),
-          timeZone: timeZone
-        },
-        attendees: [{ email }],
-        conferenceData: {
-          createRequest: {
-            requestId: `${Date.now()}`,
-            conferenceSolutionKey: { type: 'hangoutsMeet' }
-          }
-        },
-        sendUpdates: 'all'
-      };
-//console.log('heloooooooo33333');
-    let calendarResponse;
-    try {
-      calendarResponse = await calendar.events.insert({
-        calendarId: 'primary',
-        conferenceDataVersion: 1,
-        requestBody: eventDetails
-      });
-    } catch (error) {
-      console.log('dsadada',error);
-      
+        body: JSON.stringify(eventDetails)
+      }
+    );
+
+    if (!calendarResponse.ok) {
+      const errorData = await calendarResponse.json();
+      throw new Error(errorData.error?.message || 'Failed to create calendar event');
     }
 
-    //Prepare and send confirmation email
-    const emailContent = `From: me
-    To: ${email}
-    Subject: Consultation Confirmation
-    Content-Type: text/html; charset=utf-8
-    MIME-Version: 1.0
-    
-    <html>
-      <body>
-        <h2>Consultation Confirmation</h2>
-        <p>Hello ${name},</p>
-        <p>Your consultation has been scheduled successfully.</p>
-        <p><strong>Date:</strong> ${startTime.format('MMMM D, YYYY')}</p>
-        <p><strong>Time:</strong> ${selectedTime}</p>
-        <p><strong>Meeting Link:</strong> ${calendarResponse?.data?.hangoutLink || '--'}</p>
-        <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
-        <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
-      </body>
-    </html>`;
+    const eventData = await calendarResponse.json();
 
-              const encodedEmail = Buffer.from(emailContent)
-              .toString('base64')
-              .replace(/\+/g, '-')
-              .replace(/\//g, '_')
-              .replace(/=+$/, '');
+    // Prepare email content
+    const emailContent = `
+From: me
+To: ${email}
+Subject: Meeting Confirmation: Meeting with ${name}
+Content-Type: text/html; charset=utf-8
+MIME-Version: 1.0
 
-              await gmail.users.messages.send({
-              userId: 'me',
-              requestBody: {
-                raw: encodedEmail
-              }
-              });
+<html>
+  <body>
+    <h2>Meeting Confirmation</h2>
+    <p>Hello ${name},</p>
+    <p>Your meeting has been scheduled successfully.</p>
+    <p><strong>Date:</strong> ${startTime.toLocaleDateString()}</p>
+    <p><strong>Time:</strong> ${selectedTime}</p>
+    <p><strong>Meeting Link:</strong> ${eventData.hangoutLink || '--'}</p>
+    <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+    <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
+    <p>Best regards,<br>Your Meeting Scheduler</p>
+  </body>
+</html>`;
 
-    // Save meeting details in Firestore (optional)
-    // await db.collection('meetings').add({
-    //   email,
-    //   clientName: name,
-    //   clientEmail: email,
-    //   meetingId: calendarResponse.data.id,
-    //   meetingLink: calendarResponse.data.hangoutLink,
-    //   startTime: startTime.toDate(),
-    //   endTime: endTime.toDate(),
-    //   notes,
-    //   createdAt: new Date()
-    // });
+    // Encode email content
+    const encodedEmail = Buffer.from(emailContent)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
 
-    res.status(200).json({
+    // Send email using Gmail API
+    const emailResponse = await fetch(
+      'https://www.googleapis.com/gmail/v1/users/me/messages/send',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          raw: encodedEmail
+        })
+      }
+    );
+
+    if (!emailResponse.ok) {
+      console.warn('Email sending failed, but meeting was created');
+    }
+
+    // Update token in Firestore if it was refreshed
+    // if (accessToken.token !== userData.accessToken) {
+    //   await panditDoc.ref.update({
+    //     accessToken: accessToken.token,
+    //     tokenExpiry: oauth2Client.credentials.expiry_date
+    //   });
+    // }
+
+    // Send successful response
+    res.json({
       success: true,
-      meetingDetails: {
-        data:calendarResponse
+      data: {
+        name,
+        email,
+        date: startTime.toLocaleDateString(),
+        time: selectedTime,
+        
       }
     });
 
   } catch (error) {
-    console.error('Meeting scheduling error:', error);
+    console.error('Server Error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to schedule meeting'
     });
   }
-};
-
-app.post('/schedule-meeting', scheduleNewMeeting);
+});
+//app.post('/schedule-meeting', scheduleNewMeeting);
 // APIs end for meetflow
