@@ -384,14 +384,14 @@ const generateCalendarUrl = (name,email) => {
 
 
 
-app.get('/schedule-meeting', async (req, res) => {
+app.post('/schedule-meeting', async (req, res) => {
   try {
     const {
-      selectedDate="2025-01-25",     // "2025-01-25"
-      selectedTime="6:00 PM",     // "6:00 PM"
-      name='sd',
-      email="vivekkumar7189@gmail.com",
-      notes="fh",
+      selectedDate,     // "2025-01-25"
+      selectedTime,   // "6:00 PM"
+      name,
+      email,
+      notes,
       timeZone = 'Asia/Calcutta',
       currentEmail
     } = req.body;
