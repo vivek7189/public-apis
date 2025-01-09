@@ -664,7 +664,7 @@ app.get('/meetflow/user', async (req, res) => {
         error: 'User not found'
       });
     }
-
+    const userData = userSnapshot.docs[0].data();
 
     // Return user data
     res.json({
