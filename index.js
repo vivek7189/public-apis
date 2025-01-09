@@ -42,13 +42,7 @@ const db = getFirestore();
 // Use middleware in your routes
 
 
-app.post('/schedule-meeting', refreshTokenMiddleware, async (req, res) => {
-  // Your calendar API code using req.userData
-});
 
-app.post('/send-email', refreshTokenMiddleware, async (req, res) => {
-  // Your Gmail API code using req.userData
-});
 
 
 app.get('/hello', (req, res) => {
@@ -601,7 +595,7 @@ app.post('/meetflow/calendar-events', async (req, res) => {
     }
 
     const userData = userSnapshot.docs[0].data();
-    const accessToken = userData.accessToken;
+    
 
     // Set up time range using the validated date
     const startOfDay = new Date(validDate);
@@ -615,7 +609,7 @@ app.post('/meetflow/calendar-events', async (req, res) => {
       start: startOfDay.toISOString(),
       end: endOfDay.toISOString()
     });
-    
+    const { accessToken } = await tokenService.getValidToken(userData);
     // Fetch events from Google Calendar
     const response = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startOfDay.toISOString()}&timeMax=${endOfDay.toISOString()}`,
