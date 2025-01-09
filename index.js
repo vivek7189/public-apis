@@ -431,11 +431,11 @@ app.get('/schedule-meeting', async (req, res) => {
       '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',
       ''
     );
-    //console.log('userData',userData.accessToken);
+    console.log('userData hot 567',userData.accessToken);
   
     // Set credentials from Firestore
     oauth2Client.setCredentials({
-      access_token: 'ya29.a0ARW5m771RbqfAjhVQW_6_ea70OD7EKIJLhtksPoFtveRK8kZIU62Keor0LTOi1Te71Y9UvnPbWK9pB-qxg4HGkTX85pbPtdTEOB41hwRdQ8P3nb5Agic9KhgaCUIgHvnte-rDR9G_l46OA9W4VvSYSht075zZ_hnH7nfDd1IaCgYKAUcSARASFQHGX2Mi0Wn5xUaPJhmo_7CYSV36zA0175'//userData.accessToken,
+      access_token: userData?.accessToken,
     });
     // Parse time
     const [timeStr, period] = selectedTime.split(' ');
