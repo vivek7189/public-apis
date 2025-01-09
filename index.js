@@ -393,6 +393,7 @@ app.get('/schedule-meeting', async (req, res) => {
       email="vivekkumar7189@gmail.com",
       notes="fh",
       timeZone = 'Asia/Calcutta',
+      currentEmail
     } = req.body;
 
     // Log incoming request
@@ -400,7 +401,7 @@ app.get('/schedule-meeting', async (req, res) => {
 
     // Get user token from Firestore
     const userSnapshot = await db.collection('meetflow_user_data')
-      .where('email', '==', 'malik.vk07@gmail.com')
+      .where('email', '==', currentEmail)
       .limit(1)
       .get();
 
@@ -614,6 +615,54 @@ app.post('/meetflow/calendar-events', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch events'
+    });
+  }
+});
+
+
+app.get('/meetflow/user', async (req, res) => {
+  try {
+    const { username } = req.query;
+
+    if (!username) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username is required'
+      });
+    }
+
+    // Get user from database where username matches
+    const userSnapshot = await db.collection('meetflow_user_data')
+      .where('calendarUrl', '==', username) // Assuming userName field in document
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userData = userSnapshot.docs[0].data();
+
+    // Return user data
+    res.json({
+      success: true,
+      data: {
+        name: userData?.name,
+        email: userData?.email,
+        userName: userData?.userName,
+        picture:userData?.picture
+        // Add any other fields you want to return
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch user details'
     });
   }
 });
