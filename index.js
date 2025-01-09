@@ -404,36 +404,43 @@ async function getUserByEmail(email) {
   }
 }
 
-// Time Utility Functions
 function parseAndFormatTime(selectedDate, selectedTime, timeZone) {
+  // Parse the time components
   const [timeStr, period] = selectedTime.split(' ');
   let [hours, minutes] = timeStr.split(':').map(Number);
   
+  // Convert to 24-hour format
   if (period === 'PM' && hours !== 12) hours += 12;
   if (period === 'AM' && hours === 12) hours = 0;
 
-  const baseDate = new Date(selectedDate);
-  const startTime = new Date(baseDate);
-  startTime.setHours(hours, minutes, 0, 0);
+  // Create a date object in the specified timezone
+  // First convert the UTC date to the local timezone date
+  const localDate = new Date(selectedDate);
+  const userTimezone = new Date(localDate.toLocaleString('en-US', { timeZone }));
   
+  // Set the selected time
+  userTimezone.setHours(hours, minutes, 0, 0);
+  
+  // Convert back to UTC for API
+  const startTime = new Date(userTimezone.toLocaleString('en-US', { timeZone: 'UTC' }));
   const endTime = new Date(startTime);
   endTime.setHours(startTime.getHours() + 1);
 
   return { startTime, endTime };
 }
 
-// Calendar Service Functions
+// Then in your createEventDetails function, ensure the timezone is explicitly set
 function createEventDetails(name, email, startTime, endTime, timeZone, notes) {
   return {
     summary: `Meeting with ${name}`,
     description: notes || 'No additional notes',
     start: {
       dateTime: startTime.toISOString(),
-      timeZone
+      timeZone: timeZone  // Important: keep the original timezone
     },
     end: {
       dateTime: endTime.toISOString(),
-      timeZone
+      timeZone: timeZone  // Important: keep the original timezone
     },
     attendees: [{ email }],
     conferenceData: {
