@@ -308,7 +308,7 @@ app.post('/meetflow/user', async (req, res) => {
       picture,
       accessToken,
       tokenExpiry,
-      refreshToken="yhj"  // Make sure to get this from req.body too
+      refreshToken  // Make sure to get this from req.body too
     } = req.body;
 
  
@@ -351,7 +351,8 @@ app.post('/meetflow/user', async (req, res) => {
       // Only update tokens if they are present in the request
       if (accessToken) {
         console.log('update the token',accessToken);
-        updateData.accessToken = accessToken;
+        updateData.accessToken = accessToken; 
+        updateData.refreshToken = refreshToken; 
       }
 
 
@@ -418,7 +419,7 @@ app.post('/schedule-meeting', async (req, res) => {
       ''
     );
     oauth2Client.setCredentials({
-      access_token: userData?.accessToken,
+      refresh_token: userData.refreshToken
     });
 
     // Parse time components
@@ -652,15 +653,32 @@ app.get('/meetflow/user', async (req, res) => {
       ''
     );
 
-   
-
-    // Get new access token
-    const { credentials } = await oauth2Client.refreshAccessToken();
-
-    // Update token in database
-    await userDocRef.update({
-      accessToken: credentials.access_token
+    // Set credentials including refresh token
+    oauth2Client.setCredentials({
+      access_token: userData.accessToken,
+      refresh_token: userData.refreshToken  // Important: Include refresh token
     });
+
+    try {
+      // Get new access token
+      const { credentials } = await oauth2Client.refreshAccessToken();
+
+      // Update tokens in database
+      await userDocRef.update({
+        accessToken: credentials.access_token,
+        tokenExpiryDate: new Date().getTime() + (credentials.expires_in * 1000),
+        lastTokenRefresh: new Date().toISOString()
+      });
+
+      // Update userData with new token
+      userData.accessToken = credentials.access_token;
+    } catch (refreshError) {
+      console.error('Token refresh failed:', refreshError);
+      return res.status(401).json({
+        success: false,
+        error: 'Failed to refresh access token'
+      });
+    }
 
     // Return user data
     res.json({
