@@ -4,7 +4,7 @@ const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { google } = require('googleapis');
-const moment = require('moment-timezone');
+
 const cors = require('cors');
 const fetch = require('node-fetch'); 
 
@@ -618,8 +618,6 @@ app.post('/meetflow/calendar-events', async (req, res) => {
     });
   }
 });
-
-
 app.get('/meetflow/user', async (req, res) => {
   try {
     const { username } = req.query;
@@ -631,9 +629,9 @@ app.get('/meetflow/user', async (req, res) => {
       });
     }
 
-    // Get user from database where username matches
+    // Get user from database
     const userSnapshot = await db.collection('meetflow_user_data')
-      .where('calendarUrl', '==', username) // Assuming userName field in document
+      .where('calendarUrl', '==', username)
       .limit(1)
       .get();
 
@@ -645,6 +643,24 @@ app.get('/meetflow/user', async (req, res) => {
     }
 
     const userData = userSnapshot.docs[0].data();
+    const userDocRef = userSnapshot.docs[0].ref;
+
+    // Refresh token
+    const oauth2Client = new google.auth.OAuth2(
+      client_id,
+      client_secret,
+      ''
+    );
+
+   
+
+    // Get new access token
+    const { credentials } = await oauth2Client.refreshAccessToken();
+
+    // Update token in database
+    await userDocRef.update({
+      accessToken: credentials.access_token
+    });
 
     // Return user data
     res.json({
@@ -653,17 +669,15 @@ app.get('/meetflow/user', async (req, res) => {
         name: userData?.name,
         email: userData?.email,
         userName: userData?.userName,
-        picture:userData?.picture
-        // Add any other fields you want to return
+        picture: userData?.picture
       }
     });
 
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error('Error:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to fetch user details'
+      error: error.message || 'Failed to refresh token'
     });
   }
 });
-// APIs end for meetflow
