@@ -548,7 +548,17 @@ Subject: Meeting Confirmation: Meeting with ${name}
 
 app.post('/meetflow/calendar-events', async (req, res) => {
   try {
-    const { date, email } = req.body;
+    // Remove extra quotes from default date
+    const { 
+      date, 
+      email
+    } = req.body;
+
+    // Validate date
+    const validDate = new Date(date);
+    if (isNaN(validDate.getTime())) {
+      throw new Error('Invalid date format');
+    }
 
     // Get user from database
     const userSnapshot = await db.collection('meetflow_user_data')
@@ -563,12 +573,18 @@ app.post('/meetflow/calendar-events', async (req, res) => {
     const userData = userSnapshot.docs[0].data();
     const accessToken = userData.accessToken;
 
-    // Set up time range
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0,0,0,0);
+    // Set up time range using the validated date
+    const startOfDay = new Date(validDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
     
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23,59,59,999);
+    const endOfDay = new Date(validDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    // Log times for debugging
+    console.log('Time range:', {
+      start: startOfDay.toISOString(),
+      end: endOfDay.toISOString()
+    });
 
     // Fetch events from Google Calendar
     const response = await fetch(
@@ -576,6 +592,7 @@ app.post('/meetflow/calendar-events', async (req, res) => {
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         }
       }
     );
