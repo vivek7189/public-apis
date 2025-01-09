@@ -305,8 +305,8 @@ app.post('/meetflow/user', async (req, res) => {
       email,
       name,
       picture,
-      uid,
       accessToken,
+      tokenExpiry,
       refreshToken="yhj"  // Make sure to get this from req.body too
     } = req.body;
 
@@ -324,8 +324,8 @@ app.post('/meetflow/user', async (req, res) => {
       await usersRef.add({
         email,
         name,
+        tokenExpiry,
         picture,
-        uid,
         accessToken,
         refreshToken,  // Save refresh token for new users
         calendarUrl: generateCalendarUrl(name),
@@ -344,7 +344,6 @@ app.post('/meetflow/user', async (req, res) => {
       const updateData = {
         name,
         picture,
-        uid,
         lastUpdated: new Date()
       };
 
