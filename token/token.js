@@ -31,11 +31,16 @@ class TokenService {
       const newExpiryDate = Date.now() + (credentials.expires_in * 1000);
 
       await db.collection('meetflow_user_data')
-        .doc(userData.id)
-        .update({
-          accessToken: credentials.access_token,
-          tokenExpiryDate: newExpiryDate,
-          lastTokenRefresh: Date.now()
+        .where('email', '==', userData.email)
+        .get()
+        .then(snapshot => {
+          if (!snapshot.empty) {
+            snapshot.docs[0].ref.update({
+              accessToken: credentials.access_token,
+              tokenExpiryDate: newExpiryDate,
+              lastTokenRefresh: Date.now()
+            });
+          }
         });
 
       return {
