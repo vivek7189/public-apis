@@ -413,34 +413,43 @@ function parseAndFormatTime(selectedDate, selectedTime, timeZone) {
   if (period === 'PM' && hours !== 12) hours += 12;
   if (period === 'AM' && hours === 12) hours = 0;
 
-  // Create a date object in the specified timezone
-  // First convert the UTC date to the local timezone date
-  const localDate = new Date(selectedDate);
-  const userTimezone = new Date(localDate.toLocaleString('en-US', { timeZone }));
+  // Create date object from the selected date (which is in UTC)
+  const date = new Date(selectedDate);
   
-  // Set the selected time
-  userTimezone.setHours(hours, minutes, 0, 0);
+  // Get the date portion only in YYYY-MM-DD format
+  const dateString = date.toISOString().split('T')[0];
   
-  // Convert back to UTC for API
-  const startTime = new Date(userTimezone.toLocaleString('en-US', { timeZone: 'UTC' }));
+  // Create a new date string combining the date with the selected time
+  const dateTimeString = `${dateString}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000`;
+  
+  // Create the start time in the specified timezone
+  const startTime = new Date(dateTimeString);
+  
+  // Create end time (1 hour later)
   const endTime = new Date(startTime);
   endTime.setHours(startTime.getHours() + 1);
 
-  return { startTime, endTime };
+  return { 
+    startTime,
+    endTime,
+    // Include formatted times for verification
+    formattedStart: startTime.toLocaleString('en-US', { timeZone, hour12: true }),
+    formattedEnd: endTime.toLocaleString('en-US', { timeZone, hour12: true })
+  };
 }
 
-// Then in your createEventDetails function, ensure the timezone is explicitly set
+// Update the event details creation
 function createEventDetails(name, email, startTime, endTime, timeZone, notes) {
   return {
     summary: `Meeting with ${name}`,
     description: notes || 'No additional notes',
     start: {
       dateTime: startTime.toISOString(),
-      timeZone: timeZone  // Important: keep the original timezone
+      timeZone // Using the provided timezone
     },
     end: {
       dateTime: endTime.toISOString(),
-      timeZone: timeZone  // Important: keep the original timezone
+      timeZone // Using the provided timezone
     },
     attendees: [{ email }],
     conferenceData: {
