@@ -6,7 +6,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { google } = require('googleapis');
 const moment = require('moment-timezone');
 const cors = require('cors');
-const fetch = require('node:fetch');
+const fetch = require('node-fetch'); 
 
 const axios = require('axios');
 const app = express();
