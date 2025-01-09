@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 const client_id="1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com"
-
+const client_secret="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";
 const upload = multer({ storage: multer.memoryStorage() });
 //app.use(express.static('public'));
 // app.use(cors({
@@ -329,7 +329,7 @@ app.post('/meetflow/user', async (req, res) => {
         picture,
         accessToken,
         refreshToken,  // Save refresh token for new users
-        calendarUrl: generateCalendarUrl(name),
+        calendarUrl: generateCalendarUrl(name,email),
         lastUpdated: new Date(),
         createdAt: new Date()
       });
@@ -374,7 +374,7 @@ app.post('/meetflow/user', async (req, res) => {
 });
 
 // Helper function to generate unique calendar URL
-const generateCalendarUrl = (name) => {
+const generateCalendarUrl = (name,email) => {
   const cleanName = name.toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
@@ -384,11 +384,23 @@ const generateCalendarUrl = (name) => {
 
 
 
-
-async function getUserByEmail(email) {
+app.get('/schedule-meeting', async (req, res) => {
   try {
+    const {
+      selectedDate="2025-01-25",     // "2025-01-25"
+      selectedTime="6:00 PM",     // "6:00 PM"
+      name='sd',
+      email="vivekkumar7189@gmail.com",
+      notes="fh",
+      timeZone = 'Asia/Calcutta',
+    } = req.body;
+
+    // Log incoming request
+    console.log('Received request:', { selectedDate, selectedTime, timeZone });
+
+    // Get user token from Firestore
     const userSnapshot = await db.collection('meetflow_user_data')
-      .where('email', '==', email)
+      .where('email', '==', 'malik.vk07@gmail.com')
       .limit(1)
       .get();
 
@@ -396,98 +408,76 @@ async function getUserByEmail(email) {
       throw new Error('User not found');
     }
 
-    const userDoc = userSnapshot.docs[0];
-    return userDoc.data();
-  } catch (error) {
-    console.error('Error fetching user:', error);
-    throw error;
-  }
-}
+    const userData = userSnapshot.docs[0].data();
 
-function parseAndFormatTime(date, time, timeZone) {
-  // Parse time (e.g., "9:00 AM")
-  const [timeStr, period] = time.split(' ');
-  let [hours, minutes] = timeStr.split(':').map(Number);
-  
-  // Convert to 24-hour format
-  if (period === 'PM' && hours !== 12) hours += 12;
-  if (period === 'AM' && hours === 12) hours = 0;
+    // Set up OAuth client
+    const oauth2Client = new google.auth.OAuth2(
+      client_id,
+      client_secret,
+      ''
+    );
+    oauth2Client.setCredentials({
+      access_token: userData?.accessToken,
+    });
 
-  // Combine date and time (date is already in YYYY-MM-DD format)
-  const dateTimeString = `${date}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000`;
-  
-  // Create the start time
-  const startTime = new Date(dateTimeString);
-  
-  // Create end time (1 hour later)
-  const endTime = new Date(startTime);
-  endTime.setHours(startTime.getHours() + 1);
+    // Parse time components
+    const [timeStr, period] = selectedTime.split(' ');
+    let [hours, minutes] = timeStr.split(':').map(Number);
+    
+    // Convert to 24-hour format
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
 
-  return { 
-    startTime,
-    endTime,
-    // For debugging
-    formattedStart: startTime.toLocaleString('en-US', { 
-      timeZone,
-      hour12: true,
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric'
-    })
-  };
-}
+    // Create date-time string and times
+    const dateTimeString = `${selectedDate}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000`;
+    const startTime = new Date(dateTimeString);
+    const endTime = new Date(startTime);
+    endTime.setHours(startTime.getHours() + 1);
 
-function createEventDetails(name, email, date, time, timeZone, notes) {
-  const { startTime, endTime } = parseAndFormatTime(date, time, timeZone);
-
-  return {
-    summary: `Meeting with ${name}`,
-    description: notes || 'No additional notes',
-    start: {
-      dateTime: startTime.toISOString(),
-      timeZone
-    },
-    end: {
-      dateTime: endTime.toISOString(),
-      timeZone
-    },
-    attendees: [{ email }],
-    conferenceData: {
-      createRequest: {
-        requestId: Date.now().toString(),
-        conferenceSolutionKey: { type: 'hangoutsMeet' }
-      }
-    },
-    sendUpdates: 'all'
-  };
-}
-
-async function createCalendarEvent(eventDetails, accessToken) {
-  const response = await fetch(
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+    // Create calendar event details
+    const eventDetails = {
+      summary: `Meeting with ${name}`,
+      description: notes || 'No additional notes',
+      start: {
+        dateTime: startTime.toISOString(),
+        timeZone
       },
-      body: JSON.stringify(eventDetails)
+      end: {
+        dateTime: endTime.toISOString(),
+        timeZone
+      },
+      attendees: [{ email }],
+      conferenceData: {
+        createRequest: {
+          requestId: Date.now().toString(),
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
+        }
+      },
+      sendUpdates: 'all'
+    };
+
+    // Create calendar event
+    const calendarResponse = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${userData.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(eventDetails)
+      }
+    );
+
+    if (!calendarResponse.ok) {
+      const errorData = await calendarResponse.json();
+      throw new Error(errorData.error?.message || 'Failed to create calendar event');
     }
-  );
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || 'Failed to create calendar event');
-  }
+    const eventData = await calendarResponse.json();
 
-  return response.json();
-}
-
-// Email Service Functions
-function createEmailContent(name, email, startTime, selectedTime, timeZone, notes, meetingLink) {
-  return `Content-Type: text/html; charset=utf-8
+    // Create email content
+    const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
 From: malik.vk07@gmail.com
 To: ${email}
@@ -501,94 +491,45 @@ Subject: Meeting Confirmation: Meeting with ${name}
     <p><strong>Date:</strong> ${startTime.toLocaleDateString('en-US', { timeZone })}</p>
     <p><strong>Time:</strong> ${selectedTime}</p>
     <p><strong>Time Zone:</strong> ${timeZone}</p>
-    <p><strong>Meeting Link:</strong> ${meetingLink || '--'}</p>
+    <p><strong>Meeting Link:</strong> ${eventData.hangoutLink || '--'}</p>
     <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
     <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
     <p>Best regards,<br>Your Meeting Scheduler</p>
   </body>
 </html>`.replace(/\n/g, '\r\n');
-}
 
-async function sendEmail(emailContent, accessToken) {
-  const encodedEmail = Buffer.from(emailContent)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+    // Send email
+    const encodedEmail = Buffer.from(emailContent)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
 
-  const response = await fetch(
-    'https://www.googleapis.com/gmail/v1/users/me/messages/send',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        raw: encodedEmail
-      })
+    const emailResponse = await fetch(
+      'https://www.googleapis.com/gmail/v1/users/me/messages/send',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${userData.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          raw: encodedEmail
+        })
+      }
+    );
+
+    if (!emailResponse.ok) {
+      console.warn('Email sending failed, but meeting was created');
     }
-  );
 
-  if (!response.ok) {
-    throw new Error('Failed to send email');
-  }
-
-  return response.json();
-}
-
-// Main Route Handler
-app.post('/schedule-meeting', async (req, res) => {
-  try {
-    const {
-      selectedDate = "2025-01-30T18:30:00.000Z",
-      selectedTime = "6:00 PM",
-      name = "kap",
-      email = "vivekkumar7189@gmail.com",
-      notes = "dsdfs",
-      timeZone = 'Asia/Calcutta',
-    } = req.body;
-
-    // Get user data
-    const userData = await getUserByEmail('malik.vk07@gmail.com');
-
-    // Set up OAuth client
-    const oauth2Client = new google.auth.OAuth2(
-      client_id,
-      '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',
-      ''
-    );
-    oauth2Client.setCredentials({
-      access_token: userData?.accessToken,
-    });
-
-    // Parse and format time
-    const { startTime, endTime } = parseAndFormatTime(selectedDate, selectedTime, timeZone);
-
-    // Create and send calendar event
-    const eventDetails = createEventDetails(name, email, startTime, endTime, timeZone, notes);
-    const eventData = await createCalendarEvent(eventDetails, userData.accessToken);
-
-    // Create and send email
-    const emailContent = createEmailContent(
-      name, 
-      email, 
-      startTime, 
-      selectedTime, 
-      timeZone, 
-      notes, 
-      eventData.hangoutLink
-    );
-    
-    await sendEmail(emailContent, userData.accessToken);
-
-    // Send response
+    // Send successful response
     res.json({
       success: true,
       data: {
         name,
         email,
-        date: startTime.toLocaleDateString('en-US', { timeZone }),
+        date: selectedDate,
         time: selectedTime,
         meetingLink: eventData.hangoutLink || '--'
       }
@@ -603,4 +544,60 @@ app.post('/schedule-meeting', async (req, res) => {
   }
 });
 
+
+
+app.post('/meetflow/calendar-events', async (req, res) => {
+  try {
+    const { date, email } = req.body;
+
+    // Get user from database
+    const userSnapshot = await db.collection('meetflow_user_data')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      throw new Error('User not found');
+    }
+
+    const userData = userSnapshot.docs[0].data();
+    const accessToken = userData.accessToken;
+
+    // Set up time range
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0,0,0,0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23,59,59,999);
+
+    // Fetch events from Google Calendar
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startOfDay.toISOString()}&timeMax=${endOfDay.toISOString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to fetch events');
+    }
+
+    const data = await response.json();
+
+    res.json({
+      success: true,
+      data: data.items || []
+    });
+
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch events'
+    });
+  }
+});
 // APIs end for meetflow
