@@ -4,7 +4,7 @@ const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { google } = require('googleapis');
-
+const tokenService = require('./token/token');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
 
@@ -15,6 +15,8 @@ app.use(express.json());
 
 const client_id="1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com"
 const client_secret="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";
+
+
 const upload = multer({ storage: multer.memoryStorage() });
 //app.use(express.static('public'));
 // app.use(cors({
@@ -34,6 +36,19 @@ initializeApp({
 
 const db = getFirestore();
 
+// tokenMiddleware.js
+
+
+// Use middleware in your routes
+
+
+app.post('/schedule-meeting', refreshTokenMiddleware, async (req, res) => {
+  // Your calendar API code using req.userData
+});
+
+app.post('/send-email', refreshTokenMiddleware, async (req, res) => {
+  // Your Gmail API code using req.userData
+});
 
 
 app.get('/hello', (req, res) => {
@@ -303,15 +318,24 @@ require('./user/index')(app, server);
 app.post('/meetflow/user', async (req, res) => {
   try {
     const {
-      email,
+      email,  // Required
       name,
       picture,
       accessToken,
-      tokenExpiry,
-      refreshToken  // Make sure to get this from req.body too
+      refreshToken,
+      tokenExpiryDate,
+      tokenCreatedAt,
+      lastTokenRefresh,
+      tokenType,
     } = req.body;
 
- 
+    // Validate required email
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
 
     // First check if user exists by email
     const usersRef = db.collection('meetflow_user_data');
@@ -321,44 +345,47 @@ app.post('/meetflow/user', async (req, res) => {
       .get();
 
     if (userSnapshot.empty) {
-      // New user - Create new document
-      await usersRef.add({
+      // New user - Create new document with all possible fields
+      const newUserData = {
         email,
-        name,
-        tokenExpiry,
-        picture,
-        accessToken,
-        refreshToken,  // Save refresh token for new users
-        calendarUrl: generateCalendarUrl(name,email),
-        lastUpdated: new Date(),
-        createdAt: new Date()
-      });
-
-      res.json({
-        success: true,
-        message: 'New User saved'
-      });
-    } else {
-      // Existing user - Always update tokens
-      const userDoc = userSnapshot.docs[0];
-      
-      const updateData = {
-        name,
-        picture,
+        calendarUrl: generateCalendarUrl(name, email),
+        createdAt: new Date(),
         lastUpdated: new Date()
       };
 
-      // Only update tokens if they are present in the request
-      if (accessToken) {
-        console.log('update the token',accessToken);
-        updateData.accessToken = accessToken; 
-        updateData.refreshToken = refreshToken; 
-      }
+      // Add optional fields if they exist
+      if (name) newUserData.name = name;
+      if (picture) newUserData.picture = picture;
+      if (accessToken) newUserData.accessToken = accessToken;
+      if (refreshToken) newUserData.refreshToken = refreshToken;
+      if (tokenExpiryDate) newUserData.tokenExpiryDate = tokenExpiryDate;
+      if (tokenCreatedAt) newUserData.tokenCreatedAt = tokenCreatedAt;
+      if (lastTokenRefresh) newUserData.lastTokenRefresh = lastTokenRefresh;
+      if (tokenType) newUserData.tokenType = tokenType;
 
+      await usersRef.add(newUserData);
 
+      res.json({
+        success: true,
+        message: 'New user created successfully'
+      });
+    } else {
+      // Existing user - Update everything except calendarUrl
+      const userDoc = userSnapshot.docs[0];
+      const updateData = {
+        lastUpdated: new Date()
+      };
+
+      // Add all optional fields if they exist in the request
+      if (name) updateData.name = name;
+      if (picture) updateData.picture = picture;
+      if (accessToken) updateData.accessToken = accessToken;
+      if (refreshToken) updateData.refreshToken = refreshToken;
+      if (tokenExpiryDate) updateData.tokenExpiryDate = tokenExpiryDate;
+      if (tokenCreatedAt) updateData.tokenCreatedAt = tokenCreatedAt;
+      if (lastTokenRefresh) updateData.lastTokenRefresh = lastTokenRefresh;
+      if (tokenType) updateData.tokenType = tokenType;
       await userDoc.ref.update(updateData);
-
-
 
       res.json({
         success: true,
@@ -366,16 +393,17 @@ app.post('/meetflow/user', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('User operation error:', error);
     res.status(500).json({
-      error: 'Failed to register/update user',
+      success: false,
+      error: 'Failed to process user operation',
       details: error.message
     });
   }
 });
 
 // Helper function to generate unique calendar URL
-const generateCalendarUrl = (name,email) => {
+const generateCalendarUrl = (name) => {
   const cleanName = name.toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
@@ -412,15 +440,15 @@ app.post('/schedule-meeting', async (req, res) => {
 
     const userData = userSnapshot.docs[0].data();
 
-    // Set up OAuth client
-    const oauth2Client = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      ''
-    );
-    oauth2Client.setCredentials({
-      refresh_token: userData.refreshToken
-    });
+    // // Set up OAuth client
+    // const oauth2Client = new google.auth.OAuth2(
+    //   client_id,
+    //   client_secret,
+    //   ''
+    // );
+    // oauth2Client.setCredentials({
+    //   refresh_token: userData.refreshToken
+    // });
 
     // Parse time components
     const [timeStr, period] = selectedTime.split(' ');
@@ -457,14 +485,14 @@ app.post('/schedule-meeting', async (req, res) => {
       },
       sendUpdates: 'all'
     };
-
+    const { accessToken } = await tokenService.getValidToken(userData);
     // Create calendar event
     const calendarResponse = await fetch(
       'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${userData.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(eventDetails)
@@ -512,7 +540,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${userData.accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -587,7 +615,7 @@ app.post('/meetflow/calendar-events', async (req, res) => {
       start: startOfDay.toISOString(),
       end: endOfDay.toISOString()
     });
-
+    
     // Fetch events from Google Calendar
     const response = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startOfDay.toISOString()}&timeMax=${endOfDay.toISOString()}`,
@@ -643,42 +671,6 @@ app.get('/meetflow/user', async (req, res) => {
       });
     }
 
-    const userData = userSnapshot.docs[0].data();
-    const userDocRef = userSnapshot.docs[0].ref;
-
-    // Refresh token
-    const oauth2Client = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      ''
-    );
-
-    // Set credentials including refresh token
-    oauth2Client.setCredentials({
-      access_token: userData.accessToken,
-      refresh_token: userData.refreshToken  // Important: Include refresh token
-    });
-
-    try {
-      // Get new access token
-      const { credentials } = await oauth2Client.refreshAccessToken();
-
-      // Update tokens in database
-      await userDocRef.update({
-        accessToken: credentials.access_token,
-        tokenExpiryDate: new Date().getTime() + (credentials.expires_in * 1000),
-        lastTokenRefresh: new Date().toISOString()
-      });
-
-      // Update userData with new token
-      userData.accessToken = credentials.access_token;
-    } catch (refreshError) {
-      console.error('Token refresh failed:', refreshError);
-      return res.status(401).json({
-        success: false,
-        error: 'Failed to refresh access token'
-      });
-    }
 
     // Return user data
     res.json({
