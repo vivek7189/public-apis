@@ -2,12 +2,13 @@
 const { google } = require('googleapis');
 
 class TokenService {
-  constructor(clientId, clientSecret) {
+  constructor(clientId, clientSecret, db) {
     this.oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
       ''
     );
+    this.db = db; // Store the passed db instance
   }
 
   async getValidToken(userData) {
@@ -15,6 +16,7 @@ class TokenService {
     const shouldRefresh = Date.now() + fiveMinutes > userData.tokenExpiryDate;
 
     if (!shouldRefresh) {
+        console.log('old token');
       return {
         accessToken: userData.accessToken,
         isRefreshed: false
@@ -30,18 +32,18 @@ class TokenService {
       const { credentials } = await this.oauth2Client.refreshAccessToken();
       const newExpiryDate = Date.now() + (credentials.expires_in * 1000);
 
-      await db.collection('meetflow_user_data')
+      const snapshot = await this.db.collection('meetflow_user_data')
         .where('email', '==', userData.email)
-        .get()
-        .then(snapshot => {
-          if (!snapshot.empty) {
-            snapshot.docs[0].ref.update({
-              accessToken: credentials.access_token,
-              tokenExpiryDate: newExpiryDate,
-              lastTokenRefresh: Date.now()
-            });
-          }
+        .get();
+
+      if (!snapshot.empty) {
+        console.log('new token updated token');
+        await snapshot.docs[0].ref.update({
+          accessToken: credentials.access_token,
+          tokenExpiryDate: newExpiryDate,
+          lastTokenRefresh: Date.now()
         });
+      }
 
       return {
         accessToken: credentials.access_token,
@@ -55,11 +57,5 @@ class TokenService {
   }
 }
 
-// Create instance with your credentials
-const tokenService = new TokenService(
-  '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
-  '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'
-);
-
-// Export the instance
-module.exports = tokenService;
+// Don't create the instance here - export the class instead
+module.exports = TokenService;

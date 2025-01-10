@@ -4,7 +4,7 @@ const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { google } = require('googleapis');
-const tokenService = require('./token/token');
+const TokenService = require('./token/token');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
 
@@ -13,8 +13,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const client_id="1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com"
-const client_secret="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";
+
 
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -36,6 +35,11 @@ initializeApp({
 
 const db = getFirestore();
 
+const tokenService = new TokenService(
+  '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
+  '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',
+  db  // Pass the initialized db instance
+);
 // tokenMiddleware.js
 
 
