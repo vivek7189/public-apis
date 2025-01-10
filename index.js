@@ -579,10 +579,10 @@ Subject: Meeting Confirmation: Meeting with ${name}
 
 app.post('/meetflow/calendar-events', async (req, res) => {
   try {
-    // Remove extra quotes from default date
-    const { 
-      date="2025-01-17T18:30:00.000Z", 
-      email="malik.vk07@gmail.com"
+    const {
+      date = "2025-01-17T18:30:00.000Z",
+      email = "malik.vk07@gmail.com",
+      fullMonth = false
     } = req.body;
 
     // Validate date
@@ -602,24 +602,35 @@ app.post('/meetflow/calendar-events', async (req, res) => {
     }
 
     const userData = userSnapshot.docs[0].data();
-    
 
-    // Set up time range using the validated date
-    const startOfDay = new Date(validDate);
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(validDate);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    // Set up time range based on fullMonth parameter
+    let startDate, endDate;
 
-    // Log times for debugging
+    if (fullMonth) {
+      // Get start and end of the month from the provided date
+      startDate = new Date(validDate.getFullYear(), validDate.getMonth(), 1);
+      endDate = new Date(validDate.getFullYear(), validDate.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else {
+      // Use single day range
+      startDate = new Date(validDate);
+      startDate.setUTCHours(0, 0, 0, 0);
+      
+      endDate = new Date(validDate);
+      endDate.setUTCHours(23, 59, 59, 999);
+    }
+
+    // Log time range for debugging
     console.log('Time range:', {
-      start: startOfDay.toISOString(),
-      end: endOfDay.toISOString()
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
+      isFullMonth: fullMonth
     });
+
     const { accessToken } = await tokenService.getValidToken(userData);
+
     // Fetch events from Google Calendar
     const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startOfDay.toISOString()}&timeMax=${endOfDay.toISOString()}`,
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startDate.toISOString()}&timeMax=${endDate.toISOString()}&singleEvents=true&orderBy=startTime`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -637,7 +648,12 @@ app.post('/meetflow/calendar-events', async (req, res) => {
 
     res.json({
       success: true,
-      data: data.items || []
+      data: data.items || [],
+      timeRange: {
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        isFullMonth: fullMonth
+      }
     });
 
   } catch (error) {
