@@ -15,7 +15,7 @@ class TokenService {
     const fiveMinutes = 5 * 60 * 1000;
     const shouldRefresh = Date.now() + fiveMinutes > userData.tokenExpiryDate;
 
-    if (shouldRefresh) {
+    if (!shouldRefresh) {
         console.log('old token');
       return {
         accessToken: userData.accessToken,
@@ -30,7 +30,6 @@ class TokenService {
       });
 
       const { credentials } = await this.oauth2Client.refreshAccessToken();
-      console.log('credentials11',credentials);
       const newExpiryDate = credentials.expiry_date || Date.now() + (credentials.expires_in * 1000);
 
       const snapshot = await this.db.collection('meetflow_user_data')
