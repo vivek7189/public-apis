@@ -325,6 +325,7 @@ app.post('/meetflow/user', async (req, res) => {
       tokenCreatedAt,
       lastTokenRefresh,
       tokenType,
+      lastTokenRefreshDateTime
     } = req.body;
 
     // Validate required email
@@ -359,7 +360,8 @@ app.post('/meetflow/user', async (req, res) => {
       if (tokenExpiryDate) newUserData.tokenExpiryDate = tokenExpiryDate;
       if (tokenCreatedAt) newUserData.tokenCreatedAt = tokenCreatedAt;
       if (lastTokenRefresh) newUserData.lastTokenRefresh = lastTokenRefresh;
-      if (tokenType) newUserData.tokenType = tokenType;
+      if (tokenType) newUserData.tokenType = tokenType; 
+      if (lastTokenRefreshDateTime) newUserData.lastTokenRefreshDateTime = lastTokenRefreshDateTime;
 
       await usersRef.add(newUserData);
 
@@ -383,6 +385,7 @@ app.post('/meetflow/user', async (req, res) => {
       if (tokenCreatedAt) updateData.tokenCreatedAt = tokenCreatedAt;
       if (lastTokenRefresh) updateData.lastTokenRefresh = lastTokenRefresh;
       if (tokenType) updateData.tokenType = tokenType;
+      if (lastTokenRefreshDateTime) newUserData.lastTokenRefreshDateTime = lastTokenRefreshDateTime;
       await userDoc.ref.update(updateData);
 
       res.json({
@@ -578,8 +581,8 @@ app.post('/meetflow/calendar-events', async (req, res) => {
   try {
     // Remove extra quotes from default date
     const { 
-      date, 
-      email
+      date="2025-01-17T18:30:00.000Z", 
+      email="malik.vk07@gmail.com"
     } = req.body;
 
     // Validate date
