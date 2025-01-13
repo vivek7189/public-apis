@@ -708,3 +708,131 @@ app.get('/meetflow/user', async (req, res) => {
     });
   }
 });
+
+// Event Type APIs
+// Create Event API
+app.post('/meetflow/eventcreate', async (req, res) => {
+  try {
+    const { title, duration, location, description, email } = req.body;
+
+    if (!title || !duration || !location || !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields'
+      });
+    }
+
+    // Create event data
+    const eventData = {
+      title,
+      duration,
+      location,
+      description,
+      email,
+      slug: `${email.split('@')[0]}/${title.toLowerCase().replace(/\s+/g, '-')}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Add event directly to eventTypes collection
+    const eventRef = await db.collection('meetflow_user_event').add(eventData);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: eventRef.id,
+        ...eventData
+      }
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create event'
+    });
+  }
+});
+
+// Fetch All Events API
+app.get('/meetflow/events', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    // Get all events for the user
+    const eventsSnapshot = await db.collection('meetflow_user_event')
+      .where('email', '==', email)
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const events = eventsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    res.json({
+      success: true,
+      data: events
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch events'
+    });
+  }
+});
+
+// Delete Event API
+app.delete('/meetflow/eventdelete', async (req, res) => {
+  try {
+    const { eventId, email } = req.query;
+
+    if (!eventId || !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Event ID and email are required'
+      });
+    }
+
+    // Get the event first to verify ownership
+    const eventDoc = await db.collection('meetflow_user_event').doc(eventId).get();
+
+    if (!eventDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'Event not found'
+      });
+    }
+
+    if (eventDoc.data().email !== email) {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to delete this event'
+      });
+    }
+
+    // Delete the event
+    await db.collection('meetflow_user_event').doc(eventId).delete();
+
+    res.json({
+      success: true,
+      message: 'Event deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete event'
+    });
+  }
+});
