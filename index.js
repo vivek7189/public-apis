@@ -758,30 +758,32 @@ app.post('/meetflow/eventcreate', async (req, res) => {
 app.get('/meetflow/events', async (req, res) => {
   try {
     const { email } = req.query;
-
+ 
     if (!email) {
       return res.status(400).json({
         success: false,
         error: 'Email is required'
-      });
+      });  
     }
-
-    // Get all events for the user
+ 
+    // Simpler query without orderBy - will sort the results in memory instead
     const eventsSnapshot = await db.collection('meetflow_user_event')
       .where('email', '==', email)
-      .orderBy('createdAt', 'desc')
       .get();
-
+ 
+    // Get data and sort by createdAt in memory
     const events = eventsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
-
+    })).sort((a, b) => {
+      return new Date(b.createdAt) - new Date(a.createdAt); 
+    });
+ 
     res.json({
-      success: true,
+      success: true, 
       data: events
     });
-
+ 
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({
@@ -789,7 +791,7 @@ app.get('/meetflow/events', async (req, res) => {
       error: error.message || 'Failed to fetch events'
     });
   }
-});
+ });
 
 // Delete Event API
 app.delete('/meetflow/eventdelete', async (req, res) => {
