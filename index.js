@@ -3,8 +3,10 @@ const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { google } = require('googleapis');
+const nodemailer = require('nodemailer');
+//const { google } = require('googleapis');
 const TokenService = require('./token/token');
+//const EmailService = require('./email/email');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
 
@@ -12,6 +14,7 @@ const axios = require('axios');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 
 
 
@@ -42,6 +45,7 @@ const tokenService = new TokenService(
 );
 // tokenMiddleware.js
 
+//const emailService = new EmailService(tokenService);
 
 // Use middleware in your routes
 
@@ -49,9 +53,43 @@ const tokenService = new TokenService(
 
 
 
-app.get('/hello', (req, res) => {
-    res.send('Hello, Cloud Run! hello boy');
-});
+// app.get('/hello', async(req, res) => {
+//   try {
+//       // Get admin user data from database (sender's credentials)
+//       const adminSnapshot = await db.collection('meetflow_user_data')
+//           .where('email', '==', 'malik.vk07@gmail.com')  // Admin Gmail for authentication
+//           .get();
+
+//       if (adminSnapshot.empty) {
+//           throw new Error('Admin user not found in database');
+//       }
+
+//       const adminUserData = {
+//           ...adminSnapshot.docs[0].data(),
+//           // Override the sending email to use custom domain
+//           sendingEmail: 'welcome@vedbhakti.in'  // Replace with your custom domain
+//       };
+
+//       // Hardcoded recipient data for testing
+//       const newUser = {
+//           email: 'vivekkumar7189@gmail.com',
+//           name: 'kapil Kumar'
+//       };
+
+//       // Send welcome email
+//       await emailService.sendWelcomeEmail(
+//           adminUserData,
+//           newUser.email,
+//           newUser.name
+//       );
+
+//       res.send('Hello, Cloud Run! Email sent successfully to ' + newUser.email);
+
+//   } catch (error) {
+//       console.error('Error in /hello endpoint:', error);
+//       res.status(500).send('Error: ' + error.message);
+//   }
+// });
 
 app.get('/health', (req, res) => {
     res.send('API running fine');
@@ -676,8 +714,8 @@ app.get('/meetflow/user', async (req, res) => {
     }
 
     // Get user from database
-    const userSnapshot = await db.collection('meetflow_user_data')
-      .where('calendarUrl', '==', username)
+    const userSnapshot = await db.collection('meetflow_user_event')
+      .where('slug', '==', username)
       .limit(1)
       .get();
 
@@ -714,14 +752,29 @@ app.get('/meetflow/user', async (req, res) => {
 app.post('/meetflow/eventcreate', async (req, res) => {
   try {
     const { title, duration, location, description, email } = req.body;
-
+    
     if (!title || !duration || !location || !email) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields'
       });
     }
-
+    
+    // Generate the slug
+    const slug = `${email.split('@')[0]}/${title.toLowerCase().replace(/\s+/g, '-')}`;
+    
+    // Check if slug already exists
+    const existingEventQuery = await db.collection('meetflow_user_event')
+      .where('slug', '==', slug)
+      .get();
+    
+    if (!existingEventQuery.empty) {
+      return res.status(409).json({
+        success: false,
+        error: 'An event with this title already exists. Please choose a different title.'
+      });
+    }
+    
     // Create event data
     const eventData = {
       title,
@@ -729,14 +782,14 @@ app.post('/meetflow/eventcreate', async (req, res) => {
       location,
       description,
       email,
-      slug: `${email.split('@')[0]}/${title.toLowerCase().replace(/\s+/g, '-')}`,
+      slug,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-
-    // Add event directly to eventTypes collection
+    
+    // Let Firestore generate the ID
     const eventRef = await db.collection('meetflow_user_event').add(eventData);
-
+    
     res.status(201).json({
       success: true,
       data: {
@@ -744,7 +797,7 @@ app.post('/meetflow/eventcreate', async (req, res) => {
         ...eventData
       }
     });
-
+    
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({
@@ -838,3 +891,67 @@ app.delete('/meetflow/eventdelete', async (req, res) => {
     });
   }
 });
+
+
+
+async function createTransporter() {
+  try {
+      // Generate access token before sending email
+      const accessToken = await oauth2Client.getAccessToken();
+
+      // Create transporter
+      const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+              type: 'OAuth2',
+              user: 'your.gmail@gmail.com',
+              clientId: 'YOUR_CLIENT_ID',
+              clientSecret: 'YOUR_CLIENT_SECRET',
+              refreshToken: 'YOUR_REFRESH_TOKEN',
+              accessToken: accessToken,
+          }
+      });
+
+      return transporter;
+  } catch (error) {
+      console.error('Error creating transporter:', error);
+      throw error;
+  }
+}
+
+// Function to send welcome email
+async function sendWelcomeEmail(userEmail, userName) {
+  try {
+      const transporter = await createTransporter();
+
+      const mailOptions = {
+          from: {
+              name: 'Your Company Name',
+              address: 'welcome@yourdomain.com'  // Your custom domain email
+          },
+          to: userEmail,
+          subject: 'Welcome to Our Platform! 🎉',
+          html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>Welcome ${userName}! 🎉</h2>
+                  <p>Thank you for joining our platform. We're excited to have you on board!</p>
+                  <p>Here are some things you can do to get started:</p>
+                  <ul>
+                      <li>Complete your profile</li>
+                      <li>Explore our features</li>
+                      <li>Connect with others</li>
+                  </ul>
+                  <p>If you have any questions, feel free to reply to this email.</p>
+                  <p>Best regards,<br>Your Team</p>
+              </div>
+          `
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('Welcome email sent successfully:', info.messageId);
+      return true;
+  } catch (error) {
+      console.error('Error sending welcome email:', error);
+      throw error;
+  }
+}
