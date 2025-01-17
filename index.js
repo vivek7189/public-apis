@@ -3,7 +3,6 @@ const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const nodemailer = require('nodemailer');
 //const { google } = require('googleapis');
 const TokenService = require('./token/token');
 //const EmailService = require('./email/email');
@@ -896,64 +895,3 @@ app.delete('/meetflow/eventdelete', async (req, res) => {
 
 
 
-async function createTransporter() {
-  try {
-      // Generate access token before sending email
-      const accessToken = await oauth2Client.getAccessToken();
-
-      // Create transporter
-      const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-              type: 'OAuth2',
-              user: 'your.gmail@gmail.com',
-              clientId: 'YOUR_CLIENT_ID',
-              clientSecret: 'YOUR_CLIENT_SECRET',
-              refreshToken: 'YOUR_REFRESH_TOKEN',
-              accessToken: accessToken,
-          }
-      });
-
-      return transporter;
-  } catch (error) {
-      console.error('Error creating transporter:', error);
-      throw error;
-  }
-}
-
-// Function to send welcome email
-async function sendWelcomeEmail(userEmail, userName) {
-  try {
-      const transporter = await createTransporter();
-
-      const mailOptions = {
-          from: {
-              name: 'Your Company Name',
-              address: 'welcome@yourdomain.com'  // Your custom domain email
-          },
-          to: userEmail,
-          subject: 'Welcome to Our Platform! 🎉',
-          html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2>Welcome ${userName}! 🎉</h2>
-                  <p>Thank you for joining our platform. We're excited to have you on board!</p>
-                  <p>Here are some things you can do to get started:</p>
-                  <ul>
-                      <li>Complete your profile</li>
-                      <li>Explore our features</li>
-                      <li>Connect with others</li>
-                  </ul>
-                  <p>If you have any questions, feel free to reply to this email.</p>
-                  <p>Best regards,<br>Your Team</p>
-              </div>
-          `
-      };
-
-      const info = await transporter.sendMail(mailOptions);
-      console.log('Welcome email sent successfully:', info.messageId);
-      return true;
-  } catch (error) {
-      console.error('Error sending welcome email:', error);
-      throw error;
-  }
-}
