@@ -704,45 +704,47 @@ app.post('/meetflow/calendar-events', async (req, res) => {
 });
 app.get('/meetflow/user', async (req, res) => {
   try {
-    const { username } = req.query;
+    const { slug } = req.query; // username here is actually the full slug
 
-    if (!username) {
+    if (!slug) {
       return res.status(400).json({
         success: false,
-        error: 'Username is required'
+        error: 'Slug is required'
       });
     }
+    console.log('Querying with slug:', slug);
 
-    // Get user from database
+    // Direct query with the full slug
+    const cleanSlug = decodeURIComponent(slug).replace(/"/g, '');
+    console.log('Querying with clean slug:', cleanSlug);
     const userSnapshot = await db.collection('meetflow_user_event')
-      .where('slug', '==', username)
+      .where('slug', '==', cleanSlug)
       .limit(1)
       .get();
 
     if (userSnapshot.empty) {
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'Event not found'
       });
     }
-    const userData = userSnapshot.docs[0].data();
 
-    // Return user data
+    const eventDoc = userSnapshot.docs[0];
+    const eventData = {
+      id: eventDoc.id,
+      ...eventDoc.data()
+    };
+
     res.json({
       success: true,
-      data: {
-        name: userData?.name,
-        email: userData?.email,
-        userName: userData?.userName,
-        picture: userData?.picture
-      }
+      data: eventData
     });
 
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to refresh token'
+      error: error.message || 'Failed to fetch event'
     });
   }
 });
