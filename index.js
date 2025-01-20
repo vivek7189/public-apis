@@ -454,100 +454,110 @@ const generateCalendarUrl = (name) => {
 app.post('/schedule-meeting', async (req, res) => {
   try {
     const {
-      selectedDate,     // "2025-01-25"
-      selectedTime,   // "6:00 PM"
-      name,
-      email,
-      notes,
-      timeZone = 'Asia/Calcutta',
-      currentEmail
+      selectedDate="2025-01-29",
+      selectedTime="9:00 AM",
+      name="dada",
+      email="vivekkumar7189@gmail.com",
+      notes="ada",
+      timeZone="Asia/Calcutta",
+      currentEmail="malik.vk07@gmail.com"
     } = req.body;
-
-    // Log incoming request
-    console.log('Received request:', { selectedDate, selectedTime, timeZone });
-
-    // Get user token from Firestore
     const userSnapshot = await db.collection('meetflow_user_data')
-      .where('email', '==', currentEmail)
-      .limit(1)
-      .get();
+    .where('email', '==', currentEmail)
+    .limit(1)
+    .get();
 
-    if (userSnapshot.empty) {
-      throw new Error('User not found');
-    }
+  if (userSnapshot.empty) {
+    throw new Error('User not found');
+  }
 
-    const userData = userSnapshot.docs[0].data();
+  const userData = userSnapshot.docs[0].data();
 
-    // // Set up OAuth client
-    // const oauth2Client = new google.auth.OAuth2(
-    //   client_id,
-    //   client_secret,
-    //   ''
-    // );
-    // oauth2Client.setCredentials({
-    //   refresh_token: userData.refreshToken
-    // });
+  // Log the raw input
+  console.log('Raw input:', {
+    selectedDate,
+    selectedTime,
+    timeZone,
+    serverTime: new Date().toISOString()
+  });
 
-    // Parse time components
-    const [timeStr, period] = selectedTime.split(' ');
-    let [hours, minutes] = timeStr.split(':').map(Number);
-    
-    // Convert to 24-hour format
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
+  // Parse time components
+  const [timeStr, period] = selectedTime.split(' ');
+  let [hours, minutes] = timeStr.split(':').map(Number);
 
-    // Create date-time string and times
-    const dateTimeString = `${selectedDate}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00.000`;
-    const startTime = new Date(dateTimeString);
-    const endTime = new Date(startTime);
-    endTime.setHours(startTime.getHours() + 1);
+  // Convert to 24-hour format
+  if (period === 'PM' && hours !== 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
 
-    // Create calendar event details
-    const eventDetails = {
-      summary: `Meeting with ${name}`,
-      description: notes || 'No additional notes',
-      start: {
-        dateTime: startTime.toISOString(),
-        timeZone
-      },
-      end: {
-        dateTime: endTime.toISOString(),
-        timeZone
-      },
-      attendees: [{ email }],
-      conferenceData: {
-        createRequest: {
-          requestId: Date.now().toString(),
-          conferenceSolutionKey: { type: 'hangoutsMeet' }
-        }
-      },
-      sendUpdates: 'all'
-    };
-    const { accessToken } = await tokenService.getValidToken(userData);
-    // Create calendar event
-    const calendarResponse = await fetch(
-      'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(eventDetails)
+  // Create a date object in the specified timezone using moment-timezone
+  const moment = require('moment-timezone');
+  
+  // Format the time string
+  const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  
+  // Combine date and time and convert to specified timezone
+  const dateTimeString = `${selectedDate} ${timeString}`;
+  const meetingDateTime = moment.tz(dateTimeString, 'YYYY-MM-DD HH:mm', timeZone);
+  const meetingEndTime = meetingDateTime.clone().add(1, 'hour');
+
+  console.log('Parsed times:', {
+    originalInput: `${selectedDate} ${selectedTime}`,
+    parsedStartTime: meetingDateTime.format(),
+    parsedEndTime: meetingEndTime.format(),
+    timeZone: timeZone
+  });
+
+  // Create event details using the timezone-aware times
+  const eventDetails = {
+    summary: `Meeting with ${name}`,
+    description: notes || 'No additional notes',
+    start: {
+      dateTime: meetingDateTime.format(),  // ISO format with timezone
+      timeZone: timeZone
+    },
+    end: {
+      dateTime: meetingEndTime.format(),   // ISO format with timezone
+      timeZone: timeZone
+    },
+    attendees: [{ email }],
+    conferenceData: {
+      createRequest: {
+        requestId: Date.now().toString(),
+        conferenceSolutionKey: { type: 'hangoutsMeet' }
       }
-    );
+    },
+    sendUpdates: 'all'
+  };
 
-    if (!calendarResponse.ok) {
-      const errorData = await calendarResponse.json();
-      throw new Error(errorData.error?.message || 'Failed to create calendar event');
+  //console.log('Event details:', JSON.stringify(eventDetails, null, 2));
+
+  const { accessToken } = await tokenService.getValidToken(userData);
+
+  // Create calendar event
+  const calendarResponse = await fetch(
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(eventDetails)
     }
+  );
 
-    const eventData = await calendarResponse.json();
+  if (!calendarResponse.ok) {
+    const errorData = await calendarResponse.json();
+    //console.error('Calendar API error:', errorData);
+    throw new Error(errorData.error?.message || 'Failed to create calendar event');
+  }
 
-    // Create email content
+  const eventData = await calendarResponse.json();
+
+   // Create email content
     const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
-From: malik.vk07@gmail.com
+From: ${currentEmail}
 To: ${email}
 Subject: Meeting Confirmation: Meeting with ${name}
 
@@ -556,8 +566,8 @@ Subject: Meeting Confirmation: Meeting with ${name}
     <h2>Meeting Confirmation</h2>
     <p>Hello ${name},</p>
     <p>Your meeting has been scheduled successfully.</p>
-    <p><strong>Date:</strong> ${startTime.toLocaleDateString('en-US', { timeZone })}</p>
-    <p><strong>Time:</strong> ${selectedTime}</p>
+    <p><strong>Date:</strong> ${meetingDateTime.format('LL')}</p>
+    <p><strong>Time:</strong> ${meetingDateTime.format('LT')} ${timeZone}</p>
     <p><strong>Time Zone:</strong> ${timeZone}</p>
     <p><strong>Meeting Link:</strong> ${eventData.hangoutLink || '--'}</p>
     <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
