@@ -904,4 +904,129 @@ app.delete('/meetflow/eventdelete', async (req, res) => {
 });
 
 
+app.get('/meetflow/availability', async (req, res) => {
+  try {
+    const currentEmail = req.query.email;
+    
+    if (!currentEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
 
+    // Get user from existing meetflow_user_data collection
+    const userSnapshot = await db.collection('meetflow_user_data')
+      .where('email', '==', currentEmail)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userData = userSnapshot.docs[0].data();
+
+    // If no availability settings exist, return default settings
+    if (!userData.availability) {
+      return res.json({
+        success: true,
+        data: {
+          weeklySchedule: {
+            monday: [{ start: '9:00', end: '17:00' }],
+            tuesday: [{ start: '9:00', end: '17:00' }],
+            wednesday: [{ start: '9:00', end: '17:00' }],
+            thursday: [{ start: '9:00', end: '17:00' }],
+            friday: [{ start: '9:00', end: '17:00' }]
+          },
+          exceptionDates: []
+        }
+      });
+    }
+
+    // Return existing availability settings from user data
+    return res.json({
+      success: true,
+      data: {
+        weeklySchedule: userData.availability.weeklySchedule || {},
+        exceptionDates: userData.availability.exceptionDates || []
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching availability:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch availability settings'
+    });
+  }
+});
+
+// POST endpoint to save availability settings
+app.post('/meetflow/availability', async (req, res) => {
+  try {
+    const { weeklySchedule, exceptionDates, currentEmail } = req.body;
+
+    if (!currentEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    // Validate schedule data
+    if (!weeklySchedule || typeof weeklySchedule !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid weekly schedule format'
+      });
+    }
+
+    // Validate exceptionDates is an array of valid dates
+    if (!Array.isArray(exceptionDates)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Exception dates must be an array'
+      });
+    }
+
+    // Get user document reference
+    const userSnapshot = await db.collection('meetflow_user_data')
+      .where('email', '==', currentEmail)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userDocRef = userSnapshot.docs[0].ref;
+
+    // Update the existing user document with availability settings
+    await userDocRef.update({
+      'availability': {
+        weeklySchedule,
+        exceptionDates,
+        updatedAt: new Date().toISOString()
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Availability settings saved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error saving availability:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to save availability settings'
+    });
+  }
+});
