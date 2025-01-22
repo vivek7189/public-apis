@@ -568,7 +568,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
     // }
     if (phoneNumber) {
       // Create reminder in Google Apps Script
-      const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzIokU-_nIKn5373VpAobGUwiySe0y30pnwlTeM4AvtsyEqL4Sz6GVjmRcQQHde9IQ_3w/exec';
+      const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbxFFp0RP88SltTm89J1gAOtoRgWDAYeioh7UPne3EXbRcFc8qhm_t9jMRx3V6f-FVNpHw/exec';
     
     // Prepare payload for Google Apps Script
     const scriptPayload = {
