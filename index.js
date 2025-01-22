@@ -409,7 +409,7 @@ app.post('/schedule-meeting', async (req, res) => {
   try {
     const {
       selectedDate="2025-01-22",
-      selectedTime="7:43 pM",
+      selectedTime="11:06 pM",
       name="dada",
       email="vivekkumar7189@gmail.com",
       notes="ada",
@@ -568,7 +568,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
     // }
     if (phoneNumber) {
       // Create reminder in Google Apps Script
-      const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbxFFp0RP88SltTm89J1gAOtoRgWDAYeioh7UPne3EXbRcFc8qhm_t9jMRx3V6f-FVNpHw/exec';
+      const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzo8p2RSxZ1vX-BklOOfap5Ee_UZi86dTRGnA3pMwJW9muOZsdkZ5GqlrVRycewsGQfOA/exec';
     
     // Prepare payload for Google Apps Script
     const scriptPayload = {
@@ -592,9 +592,8 @@ Subject: Meeting Confirmation: Meeting with ${name}
       },
       body: JSON.stringify(scriptPayload)
     });
-
-    const scriptResult = await scriptResponse.json();
-    console.log('Google Script Response:', scriptResult);
+    const text = await scriptResponse.text(); // Get raw response text
+    console.log('Raw Response:', text);
     }
     // Send successful response
     res.json({
@@ -1031,16 +1030,7 @@ app.post('/meetflow/availability', async (req, res) => {
   }
 });
 
-// app.post('/trigger-reminder', async (req, res) => {
-//   try {
-//     const { phoneNumber } = req.body;
-//     await sendWhatsAppMessage(phoneNumber);
-//     res.json({ success: true });
-//   } catch (error) {
-//     console.error('Error sending reminder:', error);
-//     res.status(500).json({ error: error.message });
-//   }
-// });
+
 async function sendWhatsAppMessage(phoneNumber, message) {
   try {
     const response = await fetch(
@@ -1048,7 +1038,7 @@ async function sendWhatsAppMessage(phoneNumber, message) {
       {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer EAARpOxShMs4BO9xXLv1I6yBcY1y4ck50SFdIfHckjsijHMRIxoKH3TCaC98CW0OLqAkPIkx6Dbx3fwVxKZBD0iTQYvbbUP4r75v2upbczFzY8vlPEGsF4EfzylQnOeadcLJwqy9Ov5FAlGHK2YXZBJS1RUKUjlZAbZAhxMfKtQ7gmleCifHDNC26ZCWgunG98X7RfyCYNa1EEtsWKzSmuDtBA3LeG',
+          'Authorization': 'Bearer EAARpOxShMs4BOz0RoIxNpQ3NoZBvZCWKT1EnLHZASwXwRk4AzEeWZBGCbKs26ZC7CqFXaI7ABfYxmL9wVtUyIHVZAsPnilGXfqwinngRuniB3m5mAiq3h0GsSTtyZCaZA1IKlF6YJ9j0U59DCKgqIf9M3yfimdzNN36bcV7qLFzmBKSVaZA3DVbMXkTZB4B5zZCZCX3pF61ySB3EmlKsrIC36mEPSvD9iT0ZD',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
