@@ -1048,7 +1048,7 @@ async function sendWhatsAppMessage(phoneNumber, message) {
       {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer EAARpOxShMs4BO0CRm8aKpj9NZAUQ1WnKmS2wNTSRSkSvMhYdxJwtKW6NAHKgrHywHvXqZAli6vUNFoxVe4jI1oVmrGZAY1VxcOi09D5KKLlyQn8jW621hSrO91BvI4iyJMgTAzD7YGUK6HKWAgGJXmZCxxs3WBOOAZCnxNWckdAa8advFsZARBcPeD6cZA0lZC6CtSg9yZBERQZCZChhfGLTgSNG5lxNaEZD',
+          'Authorization': 'Bearer EAARpOxShMs4BO9xXLv1I6yBcY1y4ck50SFdIfHckjsijHMRIxoKH3TCaC98CW0OLqAkPIkx6Dbx3fwVxKZBD0iTQYvbbUP4r75v2upbczFzY8vlPEGsF4EfzylQnOeadcLJwqy9Ov5FAlGHK2YXZBJS1RUKUjlZAbZAhxMfKtQ7gmleCifHDNC26ZCWgunG98X7RfyCYNa1EEtsWKzSmuDtBA3LeG',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
