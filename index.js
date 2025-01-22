@@ -8,9 +8,9 @@ const TokenService = require('./token/token');
 //const EmailService = require('./email/email');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
-
 const axios = require('axios');
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
@@ -42,53 +42,7 @@ const tokenService = new TokenService(
   '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',
   db  // Pass the initialized db instance
 );
-// tokenMiddleware.js
 
-//const emailService = new EmailService(tokenService);
-
-// Use middleware in your routes
-
-
-
-
-
-// app.get('/hello', async(req, res) => {
-//   try {
-//       // Get admin user data from database (sender's credentials)
-//       const adminSnapshot = await db.collection('meetflow_user_data')
-//           .where('email', '==', 'malik.vk07@gmail.com')  // Admin Gmail for authentication
-//           .get();
-
-//       if (adminSnapshot.empty) {
-//           throw new Error('Admin user not found in database');
-//       }
-
-//       const adminUserData = {
-//           ...adminSnapshot.docs[0].data(),
-//           // Override the sending email to use custom domain
-//           sendingEmail: 'welcome@vedbhakti.in'  // Replace with your custom domain
-//       };
-
-//       // Hardcoded recipient data for testing
-//       const newUser = {
-//           email: 'vivekkumar7189@gmail.com',
-//           name: 'kapil Kumar'
-//       };
-
-//       // Send welcome email
-//       await emailService.sendWelcomeEmail(
-//           adminUserData,
-//           newUser.email,
-//           newUser.name
-//       );
-
-//       res.send('Hello, Cloud Run! Email sent successfully to ' + newUser.email);
-
-//   } catch (error) {
-//       console.error('Error in /hello endpoint:', error);
-//       res.status(500).send('Error: ' + error.message);
-//   }
-// });
 
 app.get('/health', (req, res) => {
     res.send('API running fine');
@@ -454,13 +408,14 @@ const generateCalendarUrl = (name) => {
 app.post('/schedule-meeting', async (req, res) => {
   try {
     const {
-      selectedDate="2025-01-29",
-      selectedTime="9:00 AM",
+      selectedDate="2025-01-22",
+      selectedTime="7:43 pM",
       name="dada",
       email="vivekkumar7189@gmail.com",
       notes="ada",
       timeZone="Asia/Calcutta",
-      currentEmail="malik.vk07@gmail.com"
+      currentEmail="malik.vk07@gmail.com",
+      phoneNumber = "+917042330092"
     } = req.body;
     const userSnapshot = await db.collection('meetflow_user_data')
     .where('email', '==', currentEmail)
@@ -600,7 +555,47 @@ Subject: Meeting Confirmation: Meeting with ${name}
     if (!emailResponse.ok) {
       console.warn('Email sending failed, but meeting was created');
     }
+    // if (phoneNumber) {
+    //   const meetingDetails = {
+    //     name,
+    //     phoneNumber,
+    //     meetingDateTime: meetingDateTime.toDate(),
+    //     meetingLink: eventData.hangoutLink || '--',
+    //     timeZone
+    //   };
+    //   await sendWhatsAppMessage(phoneNumber)
+    //   //scheduleWhatsAppReminder(meetingDetails);
+    // }
+    if (phoneNumber) {
+      // Create reminder in Google Apps Script
+      const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzIokU-_nIKn5373VpAobGUwiySe0y30pnwlTeM4AvtsyEqL4Sz6GVjmRcQQHde9IQ_3w/exec';
+    
+    // Prepare payload for Google Apps Script
+    const scriptPayload = {
+      selectedDate,
+      selectedTime,
+      name,
+      email,
+      notes,
+      timeZone,
+      currentEmail,
+      phoneNumber,
+      timestamp: new Date().toISOString(),
+      source: 'Node.js API'
+    };
 
+    // Trigger Google Apps Script
+    const scriptResponse = await fetch(googleScriptUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(scriptPayload)
+    });
+
+    const scriptResult = await scriptResponse.json();
+    console.log('Google Script Response:', scriptResult);
+    }
     // Send successful response
     res.json({
       success: true,
@@ -762,7 +757,12 @@ app.get('/meetflow/user', async (req, res) => {
 // Create Event API
 app.post('/meetflow/eventcreate', async (req, res) => {
   try {
-    const { title, duration, location, description, email } = req.body;
+    const { title, duration, location, description, email,reminders = {
+      whatsapp: {
+        enabled: false,
+        timing: 15
+      }
+    } } = req.body;
     
     if (!title || !duration || !location || !email) {
       return res.status(400).json({
@@ -1030,3 +1030,91 @@ app.post('/meetflow/availability', async (req, res) => {
     });
   }
 });
+
+// app.post('/trigger-reminder', async (req, res) => {
+//   try {
+//     const { phoneNumber } = req.body;
+//     await sendWhatsAppMessage(phoneNumber);
+//     res.json({ success: true });
+//   } catch (error) {
+//     console.error('Error sending reminder:', error);
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+async function sendWhatsAppMessage(phoneNumber, message) {
+  try {
+    const response = await fetch(
+      'https://graph.facebook.com/v21.0/498417126696075/messages',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer EAARpOxShMs4BO0CRm8aKpj9NZAUQ1WnKmS2wNTSRSkSvMhYdxJwtKW6NAHKgrHywHvXqZAli6vUNFoxVe4jI1oVmrGZAY1VxcOi09D5KKLlyQn8jW621hSrO91BvI4iyJMgTAzD7YGUK6HKWAgGJXmZCxxs3WBOOAZCnxNWckdAa8advFsZARBcPeD6cZA0lZC6CtSg9yZBERQZCZChhfGLTgSNG5lxNaEZD',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: phoneNumber,
+          type: "template",
+          template: {
+            name: "hello_world",
+            language: {
+              code: "en_US"
+            }
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to send WhatsApp message');
+    }
+
+    const data = await response.json();
+    console.log('WhatsApp message sent successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    throw error;
+  }
+}
+
+
+
+app.post('/reminder', async (req, res) => {
+  try {
+    // Log received payload
+    console.log('Health endpoint received:', req.body);
+
+    // Extract phone number and message from request body
+    const { phoneNumber, message } = req.body;
+
+    // Validate input
+    if (!phoneNumber) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Phone number is required'
+      });
+    }
+
+    // Send message using your custom sendMessage function
+    await sendWhatsAppMessage(phoneNumber);
+
+
+    // Respond with success
+    res.json({
+      status: 'success',
+      message: 'Reminder sent',
+      phoneNumber: phoneNumber
+    });
+
+  } catch (error) {
+    console.error('Health endpoint error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to send reminder',
+      details: error.message
+    });
+  }
+});
+
