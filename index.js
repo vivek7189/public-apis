@@ -45,7 +45,12 @@ const tokenService = new TokenService(
 
 
 app.get('/health', async(req, res) => {
-  
+  emailService.sendEmail({
+    to: 'malik.vk07@gmail.com',
+    subject: 'Test',
+    text: 'Text Email',
+    html: '<h1>Demo from MeetSynk</h1>'
+  });
     res.send('API running fine');
 });
 
@@ -357,15 +362,16 @@ app.post('/meetflow/user', async (req, res) => {
 
       await usersRef.add(newUserData);
 
+      
+       emailService.sendEmail({
+        to: email,
+        subject: 'Test hello',
+        text: 'Text Email',
+        html: '<h1>Demo from MeetSynk</h1>'
+      });
       res.json({
         success: true,
         message: 'New user created successfully'
-      });
-       emailService.sendEmail({
-        to: 'malik.vk07@gmail.com',
-        subject: 'Test',
-        text: 'Text Email',
-        html: '<h1>Demo from MeetSynk</h1>'
       });
     } else {
       // Existing user - Update everything except calendarUrl
