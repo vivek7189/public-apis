@@ -405,7 +405,7 @@ const generateCalendarUrl = (name) => {
 
 
 
-app.get('/schedule-meeting', async (req, res) => {
+app.post('/schedule-meeting', async (req, res) => {
   try {
     const {
       selectedDate="2025-01-23",
@@ -1117,7 +1117,7 @@ app.post('/reminder', async (req, res) => {
     }
 
     // Send message using your custom sendMessage function
-    await sendWhatsAppMessage(phoneNumber);
+    await sendWhatsAppMessage(req.body);
 
 
     // Respond with success
