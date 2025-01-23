@@ -1,16 +1,16 @@
 const express = require('express');
+require('dotenv').config();
 const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 //const { google } = require('googleapis');
 const TokenService = require('./token/token');
-//const EmailService = require('./email/email');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
 const axios = require('axios');
 const app = express();
-
+const emailService = require('./email-service/email');
 app.use(cors());
 app.use(express.json());
 
@@ -44,7 +44,8 @@ const tokenService = new TokenService(
 );
 
 
-app.get('/health', (req, res) => {
+app.get('/health', async(req, res) => {
+  
     res.send('API running fine');
 });
 
@@ -359,6 +360,12 @@ app.post('/meetflow/user', async (req, res) => {
       res.json({
         success: true,
         message: 'New user created successfully'
+      });
+       emailService.sendEmail({
+        to: 'malik.vk07@gmail.com',
+        subject: 'Test',
+        text: 'Text Email',
+        html: '<h1>Demo from MeetSynk</h1>'
       });
     } else {
       // Existing user - Update everything except calendarUrl
