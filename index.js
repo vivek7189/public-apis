@@ -405,11 +405,11 @@ const generateCalendarUrl = (name) => {
 
 
 
-app.post('/schedule-meeting', async (req, res) => {
+app.get('/schedule-meeting', async (req, res) => {
   try {
     const {
-      selectedDate="2025-01-22",
-      selectedTime="11:19 PM",
+      selectedDate="2025-01-23",
+      selectedTime="3:45 PM",
       name="dada",
       email="vivekkumar7189@gmail.com",
       notes="ada",
@@ -1031,7 +1031,9 @@ app.post('/meetflow/availability', async (req, res) => {
 });
 
 
-async function sendWhatsAppMessage(phoneNumber, meeting="Meet with vivek", time="2:00 PM EST", joinUrl="https://meet.google.com/abc-defg-hij") {
+async function sendWhatsAppMessage(data) {
+  console.log('whatapp datta',data);
+  const {phoneNumber, meeting="Meet with vivek", time="2:00 PM EST", joinUrl="https://meet.google.com/abc-defg-hij",notes='NA'}=data;
   try {
     const response = await fetch(
       'https://graph.facebook.com/v21.0/498417126696075/messages',
