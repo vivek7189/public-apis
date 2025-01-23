@@ -409,7 +409,7 @@ app.post('/schedule-meeting', async (req, res) => {
   try {
     const {
       selectedDate="2025-01-22",
-      selectedTime="11:06 pM",
+      selectedTime="11:19 PM",
       name="dada",
       email="vivekkumar7189@gmail.com",
       notes="ada",
@@ -1031,14 +1031,14 @@ app.post('/meetflow/availability', async (req, res) => {
 });
 
 
-async function sendWhatsAppMessage(phoneNumber, message) {
+async function sendWhatsAppMessage(phoneNumber, meeting="Meet with vivek", time="2:00 PM EST", joinUrl="https://meet.google.com/abc-defg-hij") {
   try {
     const response = await fetch(
       'https://graph.facebook.com/v21.0/498417126696075/messages',
       {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer EAARpOxShMs4BOz0RoIxNpQ3NoZBvZCWKT1EnLHZASwXwRk4AzEeWZBGCbKs26ZC7CqFXaI7ABfYxmL9wVtUyIHVZAsPnilGXfqwinngRuniB3m5mAiq3h0GsSTtyZCaZA1IKlF6YJ9j0U59DCKgqIf9M3yfimdzNN36bcV7qLFzmBKSVaZA3DVbMXkTZB4B5zZCZCX3pF61ySB3EmlKsrIC36mEPSvD9iT0ZD',
+          'Authorization': 'Bearer EAARpOxShMs4BO9bxJ3iD8ZCn5b6uvfKSud3icnM0hZCYDZCU8S0JLN75ZAbKrynOhAwZCSvvZAsAQtnyjBvPARpyFd515qZAK8vjnHvMc2WYCnp0CQKbWH1iDEe4GQG1yf5RNFqpTXPovCOE6mPmxaajZBstilZAPW3fttetJ7hGJTCWB2ZBOLqEYZCZAc6L8hynkxDpt2pc5twJvH0oTQ9h7byZA3UP0KuYZD',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -1046,10 +1046,29 @@ async function sendWhatsAppMessage(phoneNumber, message) {
           to: phoneNumber,
           type: "template",
           template: {
-            name: "hello_world",
+            name: "event_details_reminder_2", // Your approved template name
             language: {
               code: "en_US"
-            }
+            },
+            components: [
+              {
+                type: "body",
+                parameters: [
+                  {
+                    type: "text",
+                    text: meeting
+                  },
+                  {
+                    type: "text",
+                    text: time
+                  },
+                  {
+                    type: "text",
+                    text: joinUrl
+                  }
+                ]
+              }
+            ]
           }
         })
       }
@@ -1068,6 +1087,14 @@ async function sendWhatsAppMessage(phoneNumber, message) {
     throw error;
   }
 }
+
+// Usage example:
+// sendWhatsAppMessage(
+//   "1234567890",
+//   "Weekly Team Sync",
+//   "2:00 PM EST",
+//   "https://meet.google.com/abc-defg-hij"
+// );
 
 
 
