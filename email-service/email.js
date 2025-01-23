@@ -13,7 +13,8 @@ class EmailService {
       },
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      connectionTimeout: 10000,
     });
   }
 
