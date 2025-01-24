@@ -389,7 +389,7 @@ app.post('/meetflow/user', async (req, res) => {
       if (tokenCreatedAt) updateData.tokenCreatedAt = tokenCreatedAt;
       if (lastTokenRefresh) updateData.lastTokenRefresh = lastTokenRefresh;
       if (tokenType) updateData.tokenType = tokenType;
-      if (lastTokenRefreshDateTime) newUserData.lastTokenRefreshDateTime = lastTokenRefreshDateTime;
+      if (lastTokenRefreshDateTime) updateData.lastTokenRefreshDateTime = lastTokenRefreshDateTime;
       await userDoc.ref.update(updateData);
 
       res.json({
