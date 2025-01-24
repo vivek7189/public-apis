@@ -4,17 +4,18 @@ const nodemailer = require('nodemailer');
 class EmailService {
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: 'smtpout.secureserver.net',
-      port: 25,
-      secure: false,
-      auth: {
-        user: process.env.GODADY_EMAIL,
-        pass: process.env.GODADY_PA
-      },
-      tls: {
-        rejectUnauthorized: false
-      },
-      connectionTimeout: 10000,
+        host: 'smtpout.secureserver.net',
+        port: 465,
+        secure: true,
+        auth: {
+          user: process.env.GODADY_EMAIL,
+          pass: process.env.GODADY_PA
+        },
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 15000, // Increased timeout
+        socketTimeout: 15000
     });
   }
 
