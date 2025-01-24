@@ -45,11 +45,9 @@ const tokenService = new TokenService(
 
 
 app.get('/health', async(req, res) => {
-  emailService.sendEmail({
-    to: 'malik.vk07@gmail.com',
-    subject: 'Test',
-    text: 'Text Email',
-    html: '<h1>Demo from MeetSynk</h1>'
+  await emailService.sendWelcomeEmail({
+    email: 'malik.vk07@gmail.com',
+    name: 'John Doe'
   });
     res.send('API running fine');
 });
@@ -346,7 +344,17 @@ app.post('/meetflow/user', async (req, res) => {
         email,
         calendarUrl: generateCalendarUrl(name, email),
         createdAt: new Date(),
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
+        availability: {
+          weeklySchedule: {
+            monday: [{ start: '9:00', end: '17:00' }],
+            tuesday: [{ start: '9:00', end: '17:00' }],
+            wednesday: [{ start: '9:00', end: '17:00' }],
+            thursday: [{ start: '9:00', end: '17:00' }],
+            friday: [{ start: '9:00', end: '17:00' }]
+          },
+          exceptionDates: []
+        }
       };
 
       // Add optional fields if they exist
@@ -606,7 +614,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
       body: JSON.stringify(scriptPayload)
     });
     const text = await scriptResponse.text(); // Get raw response text
-    console.log('Raw Response:', text);
+    //console.log('Raw Response:', text);
     }
     // Send successful response
     res.json({
