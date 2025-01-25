@@ -754,14 +754,27 @@ app.get('/meetflow/user', async (req, res) => {
     }
 
     const eventDoc = userSnapshot.docs[0];
-    const eventData = {
-      id: eventDoc.id,
-      ...eventDoc.data()
-    };
+    const eventData = eventDoc.data();
+
+    // Fetch availability data
+    const userDataSnapshot = await db.collection('meetflow_user_data')
+      .where('email', '==', eventData.email)
+      .limit(1)
+      .get();
+
+    let availabilityData = {};
+    if (!userDataSnapshot.empty) {
+      const userData = userDataSnapshot.docs[0].data();
+      availabilityData = userData.availability || {};
+    }
 
     res.json({
       success: true,
-      data: eventData
+      data: {
+        id: eventDoc.id,
+        ...eventData,
+        availability: availabilityData
+      }
     });
 
   } catch (error) {
