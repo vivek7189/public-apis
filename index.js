@@ -639,60 +639,59 @@ Subject: Meeting Confirmation: Meeting with ${name}
 
 
 
-app.post('/meetflow/calendar-events', async (req, res) => {
+function getMonthRange(dateString) {
+  const date = new Date(dateString);
+  
+  return {
+    start: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-01T00:00:00.000Z`,
+    end: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${new Date(date.getUTCFullYear(), date.getUTCMonth() + 1, 0).getDate()}T23:59:59.999Z`,
+    isFullMonth: true
+  };
+ }
+ 
+ app.get('/meetflow/calendar-events', async (req, res) => {
   try {
-    const {
-      date = "2025-01-17T18:30:00.000Z",
-      email = "malik.vk07@gmail.com",
-      fullMonth = false
+    const { 
+      date='2024-12-31T18:30:00.000Z', 
+      email = "malik.vk07@gmail.com", 
+      fullMonth = true 
     } = req.body;
-
+ 
     // Validate date
     const validDate = new Date(date);
     if (isNaN(validDate.getTime())) {
       throw new Error('Invalid date format');
     }
-
+ 
     // Get user from database
     const userSnapshot = await db.collection('meetflow_user_data')
       .where('email', '==', email)
       .limit(1)
       .get();
-
+ 
     if (userSnapshot.empty) {
       throw new Error('User not found');
     }
-
+ 
     const userData = userSnapshot.docs[0].data();
-
-    // Set up time range based on fullMonth parameter
-    let startDate, endDate;
-
-    if (fullMonth) {
-      // Get start and end of the month from the provided date
-      startDate = new Date(validDate.getFullYear(), validDate.getMonth(), 1);
-      endDate = new Date(validDate.getFullYear(), validDate.getMonth() + 1, 0, 23, 59, 59, 999);
-    } else {
-      // Use single day range
-      startDate = new Date(validDate);
-      startDate.setUTCHours(0, 0, 0, 0);
-      
-      endDate = new Date(validDate);
-      endDate.setUTCHours(23, 59, 59, 999);
-    }
-
+ 
+    // Get time range
+    const timeRange = fullMonth ? 
+      getMonthRange(validDate) : 
+      {
+        start: new Date(validDate.setUTCHours(0, 0, 0, 0)).toISOString(),
+        end: new Date(validDate.setUTCHours(23, 59, 59, 999)).toISOString(),
+        isFullMonth: false
+      };
+ 
     // Log time range for debugging
-    console.log('Time range:', {
-      start: startDate.toISOString(),
-      end: endDate.toISOString(),
-      isFullMonth: fullMonth
-    });
-
+    console.log('Time range:', timeRange);
+ 
     const { accessToken } = await tokenService.getValidToken(userData);
-
+ 
     // Fetch events from Google Calendar
     const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startDate.toISOString()}&timeMax=${endDate.toISOString()}&singleEvents=true&orderBy=startTime`,
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeRange.start}&timeMax=${timeRange.end}&singleEvents=true&orderBy=startTime`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -700,24 +699,20 @@ app.post('/meetflow/calendar-events', async (req, res) => {
         }
       }
     );
-
+ 
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error?.message || 'Failed to fetch events');
     }
-
+ 
     const data = await response.json();
-
+ 
     res.json({
       success: true,
       data: data.items || [],
-      timeRange: {
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-        isFullMonth: fullMonth
-      }
+      timeRange
     });
-
+ 
   } catch (error) {
     console.error('Error fetching events:', error);
     res.status(500).json({
@@ -725,7 +720,8 @@ app.post('/meetflow/calendar-events', async (req, res) => {
       error: error.message || 'Failed to fetch events'
     });
   }
-});
+ });
+
 app.get('/meetflow/user', async (req, res) => {
   try {
     const { slug } = req.query; // username here is actually the full slug
@@ -1171,3 +1167,254 @@ app.post('/reminder', async (req, res) => {
   }
 });
 
+
+
+// zoom integartion
+
+// Basic Zoom Integration APIs
+
+// 1. Connect Zoom Account
+app.get('/meetflow/zoom/connect', async (req, res) => {
+  try {
+    const { code, email } = req.query; // Changed from req.body to req.query for GET request
+
+    // Validate input parameters
+    if (!code) {
+      return res.status(400).json({ error: 'Missing authorization code' });
+    }
+
+    // Exchange code for token
+    const tokenResponse = await fetch('https://zoom.us/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${Buffer.from(
+          `${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`
+        ).toString('base64')}`
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: process.env.ZOOM_REDIRECT_URI,
+        scope: 'user:read' // Add the appropriate scope
+      })
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    // Check for token exchange errors
+    if (tokenData.error) {
+      console.error('Token Exchange Error:', tokenData);
+      return res.status(400).json({ 
+        error: 'Failed to exchange authorization code',
+        details: tokenData.error_description || 'Unknown error'
+      });
+    }
+
+    // Get Zoom user info
+    const userResponse = await fetch('https://api.zoom.us/v2/users/me', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`
+      }
+    });
+
+    const zoomUserData = await userResponse.json();
+
+    // Prepare data for Firestore
+    const integrationData = {
+      // User identification
+      email: zoomUserData.email || email, // Fallback to provided email if not in Zoom data
+      zoomUserId: zoomUserData.id,
+      zoomAccountId: zoomUserData.account_id,
+      
+      // Token information
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresIn: tokenData.expires_in,
+      tokenType: tokenData.token_type,
+      scope: tokenData.scope,
+      
+      // User profile information
+      firstName: zoomUserData.first_name,
+      lastName: zoomUserData.last_name,
+      displayName: zoomUserData.display_name,
+      role: zoomUserData.role_name,
+      timezone: zoomUserData.timezone,
+      
+      // Additional metadata
+      personalMeetingUrl: zoomUserData.personal_meeting_url,
+      status: zoomUserData.status,
+      
+      // Timestamps
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Save to Firestore
+    await db.collection('meetflow_zoom_integrations').doc(zoomUserData.email).set(
+      integrationData,
+      { merge: true } // Use merge to allow updating existing documents
+    );
+
+    // Respond with success and key information
+    res.json({
+      success: true,
+      email: zoomUserData.email,
+      userId: zoomUserData.id,
+      displayName: zoomUserData.display_name
+    });
+
+  } catch (error) {
+    console.error('Zoom Connection Error:', error);
+    
+    // More detailed error response
+    res.status(500).json({ 
+      error: 'Failed to connect Zoom account',
+      message: error.message,
+      details: error.toString()
+    });
+  }
+});
+
+// 2. Check Connection Status
+app.get('/meetflow/zoom/status', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const integrationDoc = await db.collection('meetflow_zoom_integrations')
+      .doc(email)
+      .get();
+
+    if (!integrationDoc.exists) {
+      return res.json({ isConnected: false });
+    }
+
+    const integrationData = integrationDoc.data();
+
+    res.json({
+      isConnected: true,
+      email: integrationData.zoomEmail,
+      name: `${integrationData.firstName} ${integrationData.lastName}`
+    });
+
+  } catch (error) {
+    console.error('Status check error:', error);
+    res.status(500).json({ error: 'Failed to check connection status' });
+  }
+});
+
+// 3. Disconnect Zoom Account
+app.post('/meetflow/zoom/disconnect', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const integrationDoc = await db.collection('meetflow_zoom_integrations')
+      .doc(email)
+      .get();
+
+    if (integrationDoc.exists) {
+      const integrationData = integrationDoc.data();
+
+      // Revoke token with Zoom
+      await fetch('https://zoom.us/oauth/revoke', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${Buffer.from(
+            `${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`
+          ).toString('base64')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          token: integrationData.accessToken
+        })
+      });
+
+      // Delete from Firestore
+      await db.collection('meetflow_zoom_integrations').doc(email).delete();
+    }
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Disconnect error:', error);
+    res.status(500).json({ error: 'Failed to disconnect Zoom account' });
+  }
+});
+
+// 4. Create Meeting
+app.post('/meetflow/zoom/meetings', async (req, res) => {
+  try {
+    const { email, topic, duration, startTime, agenda } = req.body;
+
+    if (!email || !topic || !startTime) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    const integrationDoc = await db.collection('meetflow_zoom_integrations')
+      .doc(email)
+      .get();
+
+    if (!integrationDoc.exists) {
+      return res.status(400).json({ error: 'Zoom account not connected' });
+    }
+
+    const integrationData = integrationDoc.data();
+
+    // Create Zoom meeting
+    const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${integrationData.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        topic,
+        duration,
+        start_time: startTime,
+        agenda,
+        type: 2, // Scheduled meeting
+        settings: {
+          host_video: true,
+          participant_video: true,
+          join_before_host: true
+        }
+      })
+    });
+
+    const meeting = await response.json();
+
+    // Save meeting to Firestore
+    await db.collection('meetflow_zoom_meetings').add({
+      email,
+      meetingId: meeting.id,
+      topic: meeting.topic,
+      startTime: new Date(meeting.start_time),
+      duration: meeting.duration,
+      joinUrl: meeting.join_url,
+      status: 'scheduled',
+      createdAt: new Date()
+    });
+
+    res.json({
+      success: true,
+      meeting: {
+        id: meeting.id,
+        joinUrl: meeting.join_url,
+        startTime: meeting.start_time,
+        topic: meeting.topic
+      }
+    });
+
+  } catch (error) {
+    console.error('Meeting creation error:', error);
+    res.status(500).json({ error: 'Failed to create meeting' });
+  }
+});
