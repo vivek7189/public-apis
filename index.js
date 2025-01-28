@@ -1174,9 +1174,9 @@ app.post('/reminder', async (req, res) => {
 // Basic Zoom Integration APIs
 
 // 1. Connect Zoom Account
-app.get('/meetflow/zoom/connect', async (req, res) => {
+app.post('/meetflow/zoom/connect', async (req, res) => {
   try {
-    const { code, email } = req.query; // Changed from req.body to req.query for GET request
+    const { code, email } = req.body; // Changed from req.body to req.query for GET request
 
     // Validate input parameters
     if (!code) {
