@@ -1195,7 +1195,7 @@ app.get('/meetflow/zoom/connect', async (req, res) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: process.env.ZOOM_REDIRECT_URI,
+        redirect_uri: 'https://www.meetsynk.com/apps',
         scope: 'user:read' // Add the appropriate scope
       })
     });
@@ -1308,113 +1308,113 @@ app.get('/meetflow/zoom/status', async (req, res) => {
 });
 
 // 3. Disconnect Zoom Account
-app.post('/meetflow/zoom/disconnect', async (req, res) => {
-  try {
-    const { email } = req.body;
+// app.post('/meetflow/zoom/disconnect', async (req, res) => {
+//   try {
+//     const { email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
+//     if (!email) {
+//       return res.status(400).json({ error: 'Email is required' });
+//     }
 
-    const integrationDoc = await db.collection('meetflow_zoom_integrations')
-      .doc(email)
-      .get();
+//     const integrationDoc = await db.collection('meetflow_zoom_integrations')
+//       .doc(email)
+//       .get();
 
-    if (integrationDoc.exists) {
-      const integrationData = integrationDoc.data();
+//     if (integrationDoc.exists) {
+//       const integrationData = integrationDoc.data();
 
-      // Revoke token with Zoom
-      await fetch('https://zoom.us/oauth/revoke', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(
-            `${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`
-          ).toString('base64')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          token: integrationData.accessToken
-        })
-      });
+//       // Revoke token with Zoom
+//       await fetch('https://zoom.us/oauth/revoke', {
+//         method: 'POST',
+//         headers: {
+//           'Authorization': `Basic ${Buffer.from(
+//             `${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`
+//           ).toString('base64')}`,
+//           'Content-Type': 'application/json'
+//         },
+//         body: JSON.stringify({
+//           token: integrationData.accessToken
+//         })
+//       });
 
-      // Delete from Firestore
-      await db.collection('meetflow_zoom_integrations').doc(email).delete();
-    }
+//       // Delete from Firestore
+//       await db.collection('meetflow_zoom_integrations').doc(email).delete();
+//     }
 
-    res.json({ success: true });
+//     res.json({ success: true });
 
-  } catch (error) {
-    console.error('Disconnect error:', error);
-    res.status(500).json({ error: 'Failed to disconnect Zoom account' });
-  }
-});
+//   } catch (error) {
+//     console.error('Disconnect error:', error);
+//     res.status(500).json({ error: 'Failed to disconnect Zoom account' });
+//   }
+// });
 
 // 4. Create Meeting
-app.post('/meetflow/zoom/meetings', async (req, res) => {
-  try {
-    const { email, topic, duration, startTime, agenda } = req.body;
+// app.post('/meetflow/zoom/meetings', async (req, res) => {
+//   try {
+//     const { email, topic, duration, startTime, agenda } = req.body;
 
-    if (!email || !topic || !startTime) {
-      return res.status(400).json({ error: 'Missing required parameters' });
-    }
+//     if (!email || !topic || !startTime) {
+//       return res.status(400).json({ error: 'Missing required parameters' });
+//     }
 
-    const integrationDoc = await db.collection('meetflow_zoom_integrations')
-      .doc(email)
-      .get();
+//     const integrationDoc = await db.collection('meetflow_zoom_integrations')
+//       .doc(email)
+//       .get();
 
-    if (!integrationDoc.exists) {
-      return res.status(400).json({ error: 'Zoom account not connected' });
-    }
+//     if (!integrationDoc.exists) {
+//       return res.status(400).json({ error: 'Zoom account not connected' });
+//     }
 
-    const integrationData = integrationDoc.data();
+//     const integrationData = integrationDoc.data();
 
-    // Create Zoom meeting
-    const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${integrationData.accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        topic,
-        duration,
-        start_time: startTime,
-        agenda,
-        type: 2, // Scheduled meeting
-        settings: {
-          host_video: true,
-          participant_video: true,
-          join_before_host: true
-        }
-      })
-    });
+//     // Create Zoom meeting
+//     const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
+//       method: 'POST',
+//       headers: {
+//         'Authorization': `Bearer ${integrationData.accessToken}`,
+//         'Content-Type': 'application/json'
+//       },
+//       body: JSON.stringify({
+//         topic,
+//         duration,
+//         start_time: startTime,
+//         agenda,
+//         type: 2, // Scheduled meeting
+//         settings: {
+//           host_video: true,
+//           participant_video: true,
+//           join_before_host: true
+//         }
+//       })
+//     });
 
-    const meeting = await response.json();
+//     const meeting = await response.json();
 
-    // Save meeting to Firestore
-    await db.collection('meetflow_zoom_meetings').add({
-      email,
-      meetingId: meeting.id,
-      topic: meeting.topic,
-      startTime: new Date(meeting.start_time),
-      duration: meeting.duration,
-      joinUrl: meeting.join_url,
-      status: 'scheduled',
-      createdAt: new Date()
-    });
+//     // Save meeting to Firestore
+//     await db.collection('meetflow_zoom_meetings').add({
+//       email,
+//       meetingId: meeting.id,
+//       topic: meeting.topic,
+//       startTime: new Date(meeting.start_time),
+//       duration: meeting.duration,
+//       joinUrl: meeting.join_url,
+//       status: 'scheduled',
+//       createdAt: new Date()
+//     });
 
-    res.json({
-      success: true,
-      meeting: {
-        id: meeting.id,
-        joinUrl: meeting.join_url,
-        startTime: meeting.start_time,
-        topic: meeting.topic
-      }
-    });
+//     res.json({
+//       success: true,
+//       meeting: {
+//         id: meeting.id,
+//         joinUrl: meeting.join_url,
+//         startTime: meeting.start_time,
+//         topic: meeting.topic
+//       }
+//     });
 
-  } catch (error) {
-    console.error('Meeting creation error:', error);
-    res.status(500).json({ error: 'Failed to create meeting' });
-  }
-});
+//   } catch (error) {
+//     console.error('Meeting creation error:', error);
+//     res.status(500).json({ error: 'Failed to create meeting' });
+//   }
+// });
