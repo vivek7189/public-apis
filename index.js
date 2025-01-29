@@ -649,7 +649,7 @@ function getMonthRange(dateString) {
   };
  }
  
- app.get('/meetflow/calendar-events', async (req, res) => {
+ app.post('/meetflow/calendar-events', async (req, res) => {
   try {
     const { 
       date='2024-12-31T18:30:00.000Z', 
