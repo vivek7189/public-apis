@@ -647,7 +647,7 @@ app.post('/schedule-meeting', async (req, res) => {
 
   const eventData = await calendarResponse.json();
 
-   // Create email content
+   // Create gmail email content
     const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
 From: ${currentEmail}
@@ -693,6 +693,14 @@ Subject: Meeting Confirmation: Meeting with ${name}
     if (!emailResponse.ok) {
       console.warn('Email sending failed, but meeting was created');
     }
+    const emailData={
+      email,name,meetingDateTime,timeZone,notes,hangoutLink
+    }
+    // send email from our domain
+    emailService.sendMeetingInviteEmail(emailData)
+    //end email from meetsynk
+
+    /// email gmail send END
     // if (phoneNumber) {
     //   const meetingDetails = {
     //     name,
