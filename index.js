@@ -361,43 +361,47 @@ app.post('/meetflow/login', async (req, res) => {
     // Verify credentials based on auth method
     if (isEmailPassword) {
       // In production, use bcrypt.compare
-      if (userData.password !== password) {
+      if (userData.customLogin?.password !== password) {
         return res.status(401).json({
           success: false,
           error: 'Invalid password'
         });
       }
-    } 
+    }
 
     // Generate new token set after successful authentication
     const tokenManager = new TokenManager(db);
     const tokenData = await tokenManager.generateTokenSet();
 
-    // Update user with new tokens
-    await userDoc.ref.update({
+    // Create customLogin object with user data except email and phone
+    const customLogin = {
+      name: userData.customLogin?.name,
+      picture: userData.customLogin?.picture,
+      calanderConnected: userData.customLogin?.calanderConnected,
       accessToken: tokenData.accessToken,
-      refreshToken: tokenData.refreshToken,
-      tokenCreatedAt: tokenData.tokenCreatedAt,
+      tokenType: tokenData.tokenType,
       tokenExpiryDate: tokenData.tokenExpiryDate,
+      lastLoginAt: new Date().toISOString(),
+      // Token management fields inside customLogin
+      refreshToken: tokenData.refreshToken,
       refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
       refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
-      tokenType: tokenData.tokenType,
-      lastTokenRefresh: tokenData.lastTokenRefresh,
-      lastLoginAt: new Date().toISOString()
+      lastTokenRefresh: tokenData.lastTokenRefresh
+    };
+
+    // Update user with new structure
+    await userDoc.ref.update({
+      email: userData.email,
+      phoneNumber: userData.phoneNumber,
+      customLogin
     });
 
-    // Prepare response data (excluding sensitive fields)
+    // Prepare response data
     const responseData = {
       userId: userDoc.id,
       email: userData.email,
-      name: userData.name,
       phoneNumber: userData.phoneNumber,
-      picture: userData.picture,
-      calanderConnected: userData.calanderConnected,
-      accessToken: tokenData.accessToken,
-      tokenType: tokenData.tokenType,
-      tokenExpiryDate: tokenData.tokenExpiryDate,
-      lastLoginAt: new Date().toISOString()
+      customLogin
     };
 
     return res.status(200).json({
