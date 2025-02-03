@@ -19,7 +19,7 @@ class EmailService {
 
     this.templates = {
         meetingInvite: {
-          subject: `Meeting Confirmation: Meeting with ${meetingData.name}`,
+          subject: `Meeting Confirmation: Meeting`,
           text: (meetingData) => `
 Dear ${meetingData.name},
 
