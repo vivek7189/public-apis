@@ -621,8 +621,8 @@ app.post('/meetflow/user', async (req, res) => {
       // Add all optional fields if they exist in the request
       if (name) updateData.name = name; 
       if (phone) updateData.phone = phone; 
-      if (password) newUserData.password = password;
-      if (provider) newUserData.provider = provider;
+      if (password) updateData.password = password;
+      if (provider) updateData.provider = provider;
       if (calanderConnected) updateData.calanderConnected = calanderConnected; 
       if (picture) updateData.picture = picture;
       if (accessToken) updateData.accessToken = accessToken;
@@ -1494,10 +1494,17 @@ app.post('/meetflow/zoom/connect', async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date()
     };
-
+    const zoomData={
+      zoomLink:integrationData?.personalMeetingUrl,
+      zoomConnected:true
+    }
     // Save to Firestore
     await db.collection('meetflow_zoom_integrations').doc(zoomUserData.email).set(
       integrationData,
+      { merge: true } // Use merge to allow updating existing documents
+    );
+    await db.collection('meetflow_user_data').doc(email).set(
+       zoomData,
       { merge: true } // Use merge to allow updating existing documents
     );
 
