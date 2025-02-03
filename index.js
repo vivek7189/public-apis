@@ -577,9 +577,9 @@ app.post('/meetflow/user', async (req, res) => {
 
       // Add optional fields if they exist
       if (name) newUserData.name = name;
-      if (phone) updateData.phone = phone; 
+      if (phone) newUserData.phone = phone; 
       if (provider) newUserData.provider = provider;
-      if (calanderConnected) updateData.calanderConnected = calanderConnected; 
+      if (calanderConnected) newUserData.calanderConnected = calanderConnected; 
       if (picture) newUserData.picture = picture;
       if (accessToken) newUserData.accessToken = accessToken;
       if (refreshToken) newUserData.refreshToken = refreshToken;
@@ -598,10 +598,19 @@ app.post('/meetflow/user', async (req, res) => {
         text: 'Text Email',
         html: '<h1>Demo from MeetSynk</h1>'
       });
-      res.json({
-        success: true,
-        message: 'New user created successfully'
-      });
+      if(password){
+        res.json({
+          success: true,
+          message: 'New user created successfully',
+          data:newUserData
+        });
+      }else{
+        res.json({
+          success: true,
+          message: 'New user created successfully'
+        });
+      }
+
     } else {
       // Existing user - Update everything except calendarUrl
       const userDoc = userSnapshot.docs[0];
@@ -627,7 +636,10 @@ app.post('/meetflow/user', async (req, res) => {
 
       res.json({
         success: true,
-        message: 'User updated successfully'
+        message: 'User updated successfully',
+        data:{
+
+        }
       });
     }
   } catch (error) {
