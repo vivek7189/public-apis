@@ -471,7 +471,6 @@ app.post('/meetflow/login', async (req, res) => {
     // Update user with new structure
     await userDoc.ref.update({
       email: userData.email,
-      phoneNumber: userData.phoneNumber,
       customLogin
     });
 
@@ -549,9 +548,35 @@ app.post('/meetflow/user', async (req, res) => {
         }
       };
 
+      if (password) {
+        const tokenManager = new TokenManager(db);
+        const tokenData = await tokenManager.generateTokenSet();
+
+        newUserData.customLogin = {
+          email: email,
+          provider:provider,
+          password: password,
+          name: name || '', // Include name if available, empty string if not
+          calanderConnected: false, // Default false
+          accessToken: tokenData.accessToken,
+          tokenType: tokenData.tokenType,
+          tokenExpiryDate: tokenData.tokenExpiryDate,
+          lastLoginAt: new Date().toISOString(),
+          // Token management fields
+          refreshToken: tokenData.refreshToken,
+          refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
+          refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
+          lastTokenRefresh: tokenData.lastTokenRefresh
+        };
+      }
+
+     
+  
+      // Create customLogin object
+
+
       // Add optional fields if they exist
       if (name) newUserData.name = name;
-      if (password) newUserData.password = password;
       if (phone) updateData.phone = phone; 
       if (provider) newUserData.provider = provider;
       if (calanderConnected) updateData.calanderConnected = calanderConnected; 
