@@ -308,6 +308,85 @@ require('./user/index')(app, server);
 
 
 // APIs start for meetflow
+app.post('/meetflow/signup', async (req, res) => {
+  try {
+    const { email, phoneNumber, name, password } = req.body;
+
+    // Validate required fields
+    if (!email || !name || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide email, name and password'
+      });
+    }
+
+    const usersRef = db.collection('meetflow_user_data');
+
+    // Check if user already exists with this email
+    const existingUserSnapshot = await usersRef
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (!existingUserSnapshot.empty) {
+      return res.status(409).json({
+        success: false,
+        error: 'User with this email already exists'
+      });
+    }
+
+    // Generate token set for new user
+    const tokenManager = new TokenManager(db);
+    const tokenData = await tokenManager.generateTokenSet();
+
+    // Create customLogin object
+    const customLogin = {
+      name,
+      picture: '', // Default empty
+      calanderConnected: false, // Default false
+      accessToken: tokenData.accessToken,
+      tokenType: tokenData.tokenType,
+      tokenExpiryDate: tokenData.tokenExpiryDate,
+      lastLoginAt: new Date().toISOString(),
+      password, // In production, hash this password before storing
+      // Token management fields
+      refreshToken: tokenData.refreshToken,
+      refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
+      refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
+      lastTokenRefresh: tokenData.lastTokenRefresh
+    };
+
+    // Create new user document
+    const newUserDoc = await usersRef.add({
+      email,
+      phoneNumber: phoneNumber || '', // Optional field
+      customLogin
+    });
+
+    // Prepare response data
+    const responseData = {
+      userId: newUserDoc.id,
+      email,
+      phoneNumber: phoneNumber || '',
+      customLogin: {
+        ...customLogin,
+        password: undefined // Remove password from response
+      }
+    };
+
+    return res.status(201).json({
+      success: true,
+      data: responseData
+    });
+
+  } catch (error) {
+    console.error('Signup error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
 app.post('/meetflow/login', async (req, res) => {
   try {
     const { email, phoneNumber, password, otp } = req.body;
