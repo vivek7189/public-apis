@@ -554,7 +554,7 @@ app.post('/meetflow/user', async (req, res) => {
 
         newUserData.customLogin = {
           email: email,
-          provider:provider,
+          provider:'custom',
           password: password,
           name: name || '', // Include name if available, empty string if not
           calanderConnected: false, // Default false
