@@ -6,6 +6,7 @@ const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 //const { google } = require('googleapis');
 const TokenService = require('./token/token');
+const TokenManager = require('./token/token_manager');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
 const axios = require('axios');
@@ -307,7 +308,111 @@ require('./user/index')(app, server);
 
 
 // APIs start for meetflow
+app.post('/meetflow/login', async (req, res) => {
+  try {
+    const { email, phoneNumber, password, otp } = req.body;
 
+    // Check for valid authentication pairs
+    const isEmailPassword = email && password;
+    const isPhoneOTP = phoneNumber && otp;
+
+    // Validate exactly one authentication method is provided
+    if (!isEmailPassword && !isPhoneOTP) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide either email + password OR phone number + OTP'
+      });
+    }
+
+    if (isEmailPassword && isPhoneOTP) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide only one authentication method'
+      });
+    }
+
+    const usersRef = db.collection('meetflow_user_data');
+    let userSnapshot;
+
+    // Query user based on auth method
+    if (isEmailPassword) {
+      userSnapshot = await usersRef
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+    } else {
+      userSnapshot = await usersRef
+        .where('phoneNumber', '==', phoneNumber)
+        .limit(1)
+        .get();
+    }
+
+    // Check if user exists
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userDoc = userSnapshot.docs[0];
+    const userData = userDoc.data();
+
+    // Verify credentials based on auth method
+    if (isEmailPassword) {
+      // In production, use bcrypt.compare
+      if (userData.password !== password) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid password'
+        });
+      }
+    } 
+
+    // Generate new token set after successful authentication
+    const tokenManager = new TokenManager(db);
+    const tokenData = await tokenManager.generateTokenSet();
+
+    // Update user with new tokens
+    await userDoc.ref.update({
+      accessToken: tokenData.accessToken,
+      refreshToken: tokenData.refreshToken,
+      tokenCreatedAt: tokenData.tokenCreatedAt,
+      tokenExpiryDate: tokenData.tokenExpiryDate,
+      refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
+      refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
+      tokenType: tokenData.tokenType,
+      lastTokenRefresh: tokenData.lastTokenRefresh,
+      lastLoginAt: new Date().toISOString()
+    });
+
+    // Prepare response data (excluding sensitive fields)
+    const responseData = {
+      userId: userDoc.id,
+      email: userData.email,
+      name: userData.name,
+      phoneNumber: userData.phoneNumber,
+      picture: userData.picture,
+      calanderConnected: userData.calanderConnected,
+      accessToken: tokenData.accessToken,
+      tokenType: tokenData.tokenType,
+      tokenExpiryDate: tokenData.tokenExpiryDate,
+      lastLoginAt: new Date().toISOString()
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: responseData
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
 app.post('/meetflow/user', async (req, res) => {
   try {
     const {
@@ -320,7 +425,11 @@ app.post('/meetflow/user', async (req, res) => {
       tokenCreatedAt,
       lastTokenRefresh,
       tokenType,
-      lastTokenRefreshDateTime
+      lastTokenRefreshDateTime,
+      calanderConnected,
+      password,
+      provider,
+      phone
     } = req.body;
 
     // Validate required email
@@ -359,6 +468,10 @@ app.post('/meetflow/user', async (req, res) => {
 
       // Add optional fields if they exist
       if (name) newUserData.name = name;
+      if (password) newUserData.password = password;
+      if (phone) updateData.phone = phone; 
+      if (provider) newUserData.provider = provider;
+      if (calanderConnected) updateData.calanderConnected = calanderConnected; 
       if (picture) newUserData.picture = picture;
       if (accessToken) newUserData.accessToken = accessToken;
       if (refreshToken) newUserData.refreshToken = refreshToken;
@@ -389,7 +502,11 @@ app.post('/meetflow/user', async (req, res) => {
       };
 
       // Add all optional fields if they exist in the request
-      if (name) updateData.name = name;
+      if (name) updateData.name = name; 
+      if (phone) updateData.phone = phone; 
+      if (password) newUserData.password = password;
+      if (provider) newUserData.provider = provider;
+      if (calanderConnected) updateData.calanderConnected = calanderConnected; 
       if (picture) updateData.picture = picture;
       if (accessToken) updateData.accessToken = accessToken;
       if (refreshToken) updateData.refreshToken = refreshToken;
