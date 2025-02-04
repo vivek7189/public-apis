@@ -514,7 +514,6 @@ app.post('/meetflow/user', async (req, res) => {
       phone,
       gmailConnected
     } = req.body;
-    console.log('gmailConnected',gmailConnected);
     // Validate required email
     if (!email) {
       return res.status(400).json({
@@ -588,7 +587,7 @@ app.post('/meetflow/user', async (req, res) => {
       if (tokenCreatedAt) newUserData.tokenCreatedAt = tokenCreatedAt;
       if (lastTokenRefresh) newUserData.lastTokenRefresh = lastTokenRefresh;
       if (tokenType) newUserData.tokenType = tokenType; 
-      if (gmailConnected) newUserData.gmailConnected = gmailConnected; 
+      if ('gmailConnected' in req.body) newUserData.gmailConnected = gmailConnected; 
       if (lastTokenRefreshDateTime) newUserData.lastTokenRefreshDateTime = lastTokenRefreshDateTime;
 
       await usersRef.add(newUserData);
@@ -633,7 +632,7 @@ app.post('/meetflow/user', async (req, res) => {
       if (tokenCreatedAt) updateData.tokenCreatedAt = tokenCreatedAt;
       if (lastTokenRefresh) updateData.lastTokenRefresh = lastTokenRefresh;
       if (tokenType) updateData.tokenType = tokenType;
-      if (gmailConnected) updateData.gmailConnected = gmailConnected; 
+      if ('gmailConnected' in req.body) updateData.gmailConnected = gmailConnected; 
       if (lastTokenRefreshDateTime) updateData.lastTokenRefreshDateTime = lastTokenRefreshDateTime;
       await userDoc.ref.update(updateData);
 
