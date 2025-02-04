@@ -1547,7 +1547,7 @@ app.post('/meetflow/zoom/connect', async (req, res) => {
   
       // Use arrayUnion to push to appsData array
       await userDoc.ref.update({
-        appsData: admin.firestore.FieldValue.arrayUnion(zoomAppData)
+        appsData: FieldValue.arrayUnion(zoomAppData)
       });
 
     // Respond with success and key information
