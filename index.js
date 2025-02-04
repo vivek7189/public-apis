@@ -843,7 +843,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
       console.warn('Email sending failed, but meeting was created');
     }
     const emailData={
-      email,name,meetingDateTime,timeZone,notes,hangoutLink
+      email,name,meetingDateTime,timeZone,notes,hangoutLink:'NA'
     }
     // send email from our domain
     emailService.sendMeetingInviteEmail(emailData)
@@ -898,7 +898,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
         email,
         date: selectedDate,
         time: selectedTime,
-        meetingLink: eventData?.hangoutLink || '--'
+        meetingLink: 'NA'
       }
     });
 
