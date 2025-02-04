@@ -1575,7 +1575,7 @@ app.post('/meetflow/apps/data', async (req, res) => {
   try {
     const { app, action, email } = req.body;
 
-    if (!app || !action || !email) {
+    if (!action || !email) {
       return res.status(400).json({
         success: false,
         error: 'Missing required parameters: app, action, and email are required'
