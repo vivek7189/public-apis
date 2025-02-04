@@ -514,7 +514,7 @@ app.post('/meetflow/user', async (req, res) => {
       phone,
       gmailConnected
     } = req.body;
-
+    console.log('gmailConnected',gmailConnected);
     // Validate required email
     if (!email) {
       return res.status(400).json({
@@ -594,12 +594,12 @@ app.post('/meetflow/user', async (req, res) => {
       await usersRef.add(newUserData);
 
       
-       emailService.sendEmail({
-        to: email,
-        subject: 'Test hello',
-        text: 'Text Email',
-        html: '<h1>Demo from MeetSynk</h1>'
-      });
+      //  emailService.sendEmail({
+      //   to: email,
+      //   subject: 'Test hello',
+      //   text: 'Text Email',
+      //   html: '<h1>Demo from MeetSynk</h1>'
+      // });
       if(password){
         res.json({
           success: true,
