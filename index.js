@@ -850,17 +850,17 @@ Subject: Meeting Confirmation: Meeting with ${name}
     //end email from meetsynk
 
     /// email gmail send END
-    // if (phoneNumber) {
-    //   const meetingDetails = {
-    //     name,
-    //     phoneNumber,
-    //     meetingDateTime: meetingDateTime.toDate(),
-    //     meetingLink: eventData.hangoutLink || '--',
-    //     timeZone
-    //   };
-    //   await sendWhatsAppMessage(phoneNumber)
-    //   //scheduleWhatsAppReminder(meetingDetails);
-    // }
+    if (phoneNumber) {
+      const meetingDetails = {
+        name,
+        phoneNumber,
+        meetingDateTime: meetingDateTime.toDate(),
+        meetingLink: eventData.hangoutLink || '--',
+        timeZone
+      };
+      await sendWhatsAppMessage(meetingDetails)
+      //scheduleWhatsAppReminder(meetingDetails);
+    }
     if (phoneNumber) {
       // Create reminder in Google Apps Script
       const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzo8p2RSxZ1vX-BklOOfap5Ee_UZi86dTRGnA3pMwJW9muOZsdkZ5GqlrVRycewsGQfOA/exec';
@@ -1344,7 +1344,7 @@ async function sendWhatsAppMessage(data) {
       {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer EAARpOxShMs4BO9bxJ3iD8ZCn5b6uvfKSud3icnM0hZCYDZCU8S0JLN75ZAbKrynOhAwZCSvvZAsAQtnyjBvPARpyFd515qZAK8vjnHvMc2WYCnp0CQKbWH1iDEe4GQG1yf5RNFqpTXPovCOE6mPmxaajZBstilZAPW3fttetJ7hGJTCWB2ZBOLqEYZCZAc6L8hynkxDpt2pc5twJvH0oTQ9h7byZA3UP0KuYZD',
+          'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
