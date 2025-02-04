@@ -811,7 +811,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
     <p><strong>Date:</strong> ${meetingDateTime.format('LL')}</p>
     <p><strong>Time:</strong> ${meetingDateTime.format('LT')} ${timeZone}</p>
     <p><strong>Time Zone:</strong> ${timeZone}</p>
-    <p><strong>Meeting Link:</strong> ${eventData.hangoutLink || '--'}</p>
+    <p><strong>Meeting Link:</strong> ${eventData?.hangoutLink || '--'}</p>
     <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
     <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
     <p>Best regards,<br>Your Meeting Scheduler</p>
@@ -898,7 +898,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
         email,
         date: selectedDate,
         time: selectedTime,
-        meetingLink: eventData.hangoutLink || '--'
+        meetingLink: eventData?.hangoutLink || '--'
       }
     });
 
