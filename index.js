@@ -1570,6 +1570,94 @@ app.post('/meetflow/zoom/connect', async (req, res) => {
   }
 });
 
+
+app.post('/meetflow/apps/data', async (req, res) => {
+  try {
+    const { app, action, email } = req.body;
+
+    if (!app || !action || !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters: app, action, and email are required'
+      });
+    }
+
+    const usersRef = db.collection('meetflow_user_data');
+    const userSnapshot = await usersRef
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userDoc = userSnapshot.docs[0];
+    const userData = userDoc.data();
+
+    switch (action) {
+      case 'del':
+        // If appsData doesn't exist, return empty array
+        if (!userData.appsData) {
+          return res.status(200).json({
+            success: true,
+            message: 'No apps data to delete',
+            appsData: []
+          });
+        }
+
+        // Filter out the app to be deleted
+        const updatedAppsData = userData.appsData.filter(
+          appData => appData.type !== app
+        );
+
+        // Update the document
+        await userDoc.ref.update({
+          appsData: updatedAppsData
+        });
+
+        // If it's zoom, also delete from zoom integrations collection
+        if (app === 'zoom') {
+          const zoomApp = userData.appsData.find(a => a.type === 'zoom');
+          if (zoomApp) {
+            await db.collection('meetflow_zoom_integrations').doc(zoomApp.email).delete();
+          }
+        }
+
+        // Get the updated document to return latest data
+        const updatedUserDoc = await userDoc.ref.get();
+        const updatedUserData = updatedUserDoc.data();
+
+        return res.status(200).json({
+          success: true,
+          message: `${app} integration removed successfully`,
+          appsData: updatedUserData.appsData || []
+        });
+
+      case 'status':
+        return res.status(200).json({
+          success: true,
+          connected: !!userData.appsData?.find(a => a.type === app),
+          appsData: userData.appsData || []
+        });
+
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid action specified'
+        });
+    }
+  } catch (error) {
+    console.error('Error handling apps data:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
+    });
+  }
+});
 // 2. Check Connection Status
 app.get('/meetflow/zoom/status', async (req, res) => {
   try {
