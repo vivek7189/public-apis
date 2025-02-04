@@ -1617,6 +1617,7 @@ app.post('/meetflow/apps/data', async (req, res) => {
           existingAppsData[existingAppIndex] = {
             ...existingAppsData[existingAppIndex],
             ...appData,
+            connected:true,
             lastUpdated: new Date().toISOString()
           };
         } else {
@@ -1624,6 +1625,7 @@ app.post('/meetflow/apps/data', async (req, res) => {
           existingAppsData.push({
             ...appData,
             type: app,
+            connected:true,
             lastUpdated: new Date().toISOString()
           });
         }
