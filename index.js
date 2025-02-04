@@ -1498,17 +1498,21 @@ app.post('/meetflow/zoom/connect', async (req, res) => {
     };
     const zoomData={
       zoomLink:integrationData?.personalMeetingUrl,
-      zoomConnected:true
+      zoomConnected:true,
+      zoomEmail:zoomUserData.email 
     }
     // Save to Firestore
     await db.collection('meetflow_zoom_integrations').doc(zoomUserData.email).set(
       integrationData,
       { merge: true } // Use merge to allow updating existing documents
     );
-    await db.collection('meetflow_user_data').doc(email).set(
-       zoomData,
-      { merge: true } // Use merge to allow updating existing documents
-    );
+    const usersRef = db.collection('meetflow_user_data');
+    const userSnapshot = await usersRef
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+      const userDoc = userSnapshot.docs[0];
+      await userDoc.ref.update(zoomData);
 
     // Respond with success and key information
     res.json({
