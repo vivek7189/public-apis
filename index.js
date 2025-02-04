@@ -587,9 +587,23 @@ app.post('/meetflow/user', async (req, res) => {
       if (tokenCreatedAt) newUserData.tokenCreatedAt = tokenCreatedAt;
       if (lastTokenRefresh) newUserData.lastTokenRefresh = lastTokenRefresh;
       if (tokenType) newUserData.tokenType = tokenType; 
-      if ('gmailConnected' in req.body) newUserData.gmailConnected = gmailConnected; 
+      //if ('gmailConnected' in req.body) newUserData.gmailConnected = gmailConnected; 
       if (lastTokenRefreshDateTime) newUserData.lastTokenRefreshDateTime = lastTokenRefreshDateTime;
 
+      if ('gmailConnected' in req.body) {
+        const gmailAppData = {
+          type: 'gmail',
+          connected: gmailConnected,
+          email: email,
+          link: 'NA',
+          lastUpdated: new Date().toISOString()
+        };
+        if (!newUserData.appsData) {
+          newUserData.appsData = [];
+        }
+        // Add Gmail data to appsData array
+        newUserData?.appsData.push(gmailAppData);
+      }
       await usersRef.add(newUserData);
 
       
@@ -632,8 +646,23 @@ app.post('/meetflow/user', async (req, res) => {
       if (tokenCreatedAt) updateData.tokenCreatedAt = tokenCreatedAt;
       if (lastTokenRefresh) updateData.lastTokenRefresh = lastTokenRefresh;
       if (tokenType) updateData.tokenType = tokenType;
-      if ('gmailConnected' in req.body) updateData.gmailConnected = gmailConnected; 
+      //if ('gmailConnected' in req.body) updateData.gmailConnected = gmailConnected; 
       if (lastTokenRefreshDateTime) updateData.lastTokenRefreshDateTime = lastTokenRefreshDateTime;
+
+      if ('gmailConnected' in req.body) {
+        const gmailAppData = {
+          type: 'gmail',
+          connected: gmailConnected,
+          email: email,
+          link: 'NA',
+          lastUpdated: new Date().toISOString()
+        };
+        if (!updateData.appsData) {
+          updateData.appsData = [];
+        }
+        // Add Gmail data to appsData array
+        updateData?.appsData.push(gmailAppData);
+      }
       await userDoc.ref.update(updateData);
 
       res.json({
@@ -1496,11 +1525,7 @@ app.post('/meetflow/zoom/connect', async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    const zoomData={
-      zoomLink:integrationData?.personalMeetingUrl,
-      zoomConnected:true,
-      zoomEmail:zoomUserData.email 
-    }
+   
     // Save to Firestore
     await db.collection('meetflow_zoom_integrations').doc(zoomUserData.email).set(
       integrationData,
@@ -1512,7 +1537,18 @@ app.post('/meetflow/zoom/connect', async (req, res) => {
       .limit(1)
       .get();
       const userDoc = userSnapshot.docs[0];
-      await userDoc.ref.update(zoomData);
+      const zoomAppData = {
+        type: 'zoom',
+        connected: true,
+        link: integrationData?.personalMeetingUrl,
+        email: zoomUserData.email,
+        lastUpdated: new Date().toISOString()
+      };
+  
+      // Use arrayUnion to push to appsData array
+      await userDoc.ref.update({
+        appsData: admin.firestore.FieldValue.arrayUnion(zoomAppData)
+      });
 
     // Respond with success and key information
     res.json({
