@@ -1573,7 +1573,7 @@ app.post('/meetflow/zoom/connect', async (req, res) => {
 
 app.post('/meetflow/apps/data', async (req, res) => {
   try {
-    const { app, action, email } = req.body;
+    const { app, action, email, appData } = req.body;
 
     if (!action || !email) {
       return res.status(400).json({
@@ -1599,6 +1599,50 @@ app.post('/meetflow/apps/data', async (req, res) => {
     const userData = userDoc.data();
 
     switch (action) {
+      case 'add':
+        if (!appData) {
+          return res.status(400).json({
+            success: false,
+            error: 'appData is required for add action'
+          });
+        }
+
+        let existingAppsData = userData.appsData || [];
+        const existingAppIndex = existingAppsData.findIndex(
+          existingApp => existingApp.type === app
+        );
+
+        if (existingAppIndex !== -1) {
+          // Merge with existing app data
+          existingAppsData[existingAppIndex] = {
+            ...existingAppsData[existingAppIndex],
+            ...appData,
+            lastUpdated: new Date().toISOString()
+          };
+        } else {
+          // Add new app data
+          existingAppsData.push({
+            ...appData,
+            type: app,
+            lastUpdated: new Date().toISOString()
+          });
+        }
+
+        // Update the document
+        await userDoc.ref.update({
+          appsData: existingAppsData
+        });
+
+        // Get the updated document to return latest data
+        const addUpdatedDoc = await userDoc.ref.get();
+        const addUpdatedData = addUpdatedDoc.data();
+
+        return res.status(200).json({
+          success: true,
+          message: `${app} integration updated successfully`,
+          appsData: addUpdatedData.appsData || []
+        });
+
       case 'del':
         // If appsData doesn't exist, return empty array
         if (!userData.appsData) {
@@ -1628,13 +1672,13 @@ app.post('/meetflow/apps/data', async (req, res) => {
         }
 
         // Get the updated document to return latest data
-        const updatedUserDoc = await userDoc.ref.get();
-        const updatedUserData = updatedUserDoc.data();
+        const delUpdatedDoc = await userDoc.ref.get();
+        const delUpdatedData = delUpdatedDoc.data();
 
         return res.status(200).json({
           success: true,
           message: `${app} integration removed successfully`,
-          appsData: updatedUserData.appsData || []
+          appsData: delUpdatedData.appsData || []
         });
 
       case 'status':
@@ -1658,6 +1702,7 @@ app.post('/meetflow/apps/data', async (req, res) => {
     });
   }
 });
+
 // 2. Check Connection Status
 app.get('/meetflow/zoom/status', async (req, res) => {
   try {
@@ -1689,114 +1734,3 @@ app.get('/meetflow/zoom/status', async (req, res) => {
   }
 });
 
-// 3. Disconnect Zoom Account
-// app.post('/meetflow/zoom/disconnect', async (req, res) => {
-//   try {
-//     const { email } = req.body;
-
-//     if (!email) {
-//       return res.status(400).json({ error: 'Email is required' });
-//     }
-
-//     const integrationDoc = await db.collection('meetflow_zoom_integrations')
-//       .doc(email)
-//       .get();
-
-//     if (integrationDoc.exists) {
-//       const integrationData = integrationDoc.data();
-
-//       // Revoke token with Zoom
-//       await fetch('https://zoom.us/oauth/revoke', {
-//         method: 'POST',
-//         headers: {
-//           'Authorization': `Basic ${Buffer.from(
-//             `${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`
-//           ).toString('base64')}`,
-//           'Content-Type': 'application/json'
-//         },
-//         body: JSON.stringify({
-//           token: integrationData.accessToken
-//         })
-//       });
-
-//       // Delete from Firestore
-//       await db.collection('meetflow_zoom_integrations').doc(email).delete();
-//     }
-
-//     res.json({ success: true });
-
-//   } catch (error) {
-//     console.error('Disconnect error:', error);
-//     res.status(500).json({ error: 'Failed to disconnect Zoom account' });
-//   }
-// });
-
-// 4. Create Meeting
-// app.post('/meetflow/zoom/meetings', async (req, res) => {
-//   try {
-//     const { email, topic, duration, startTime, agenda } = req.body;
-
-//     if (!email || !topic || !startTime) {
-//       return res.status(400).json({ error: 'Missing required parameters' });
-//     }
-
-//     const integrationDoc = await db.collection('meetflow_zoom_integrations')
-//       .doc(email)
-//       .get();
-
-//     if (!integrationDoc.exists) {
-//       return res.status(400).json({ error: 'Zoom account not connected' });
-//     }
-
-//     const integrationData = integrationDoc.data();
-
-//     // Create Zoom meeting
-//     const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
-//       method: 'POST',
-//       headers: {
-//         'Authorization': `Bearer ${integrationData.accessToken}`,
-//         'Content-Type': 'application/json'
-//       },
-//       body: JSON.stringify({
-//         topic,
-//         duration,
-//         start_time: startTime,
-//         agenda,
-//         type: 2, // Scheduled meeting
-//         settings: {
-//           host_video: true,
-//           participant_video: true,
-//           join_before_host: true
-//         }
-//       })
-//     });
-
-//     const meeting = await response.json();
-
-//     // Save meeting to Firestore
-//     await db.collection('meetflow_zoom_meetings').add({
-//       email,
-//       meetingId: meeting.id,
-//       topic: meeting.topic,
-//       startTime: new Date(meeting.start_time),
-//       duration: meeting.duration,
-//       joinUrl: meeting.join_url,
-//       status: 'scheduled',
-//       createdAt: new Date()
-//     });
-
-//     res.json({
-//       success: true,
-//       meeting: {
-//         id: meeting.id,
-//         joinUrl: meeting.join_url,
-//         startTime: meeting.start_time,
-//         topic: meeting.topic
-//       }
-//     });
-
-//   } catch (error) {
-//     console.error('Meeting creation error:', error);
-//     res.status(500).json({ error: 'Failed to create meeting' });
-//   }
-// });
