@@ -1734,3 +1734,54 @@ app.get('/meetflow/zoom/status', async (req, res) => {
   }
 });
 
+
+
+app.post('/meetflow/billing', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    // Find user document
+    const usersRef = db.collection('meetflow_user_data');
+    const userSnapshot = await usersRef
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userData = userSnapshot.docs[0].data();
+    
+    // Get billing object from user data
+    const billingData = userData.billing || {
+      currentPlan: 'free',
+      status: 'active',
+      nextBillingDate:'NA',
+      lastPaymentDate:'NA',
+      lastUpdated: new Date().toISOString()
+    };
+
+    return res.status(200).json({
+      success: true,
+      billing: billingData
+    });
+
+  } catch (error) {
+    console.error('Error fetching billing data:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
+    });
+  }
+});
