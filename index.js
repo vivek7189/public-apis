@@ -607,12 +607,10 @@ app.post('/meetflow/user', async (req, res) => {
       await usersRef.add(newUserData);
 
       
-      //  emailService.sendEmail({
-      //   to: email,
-      //   subject: 'Test hello',
-      //   text: 'Text Email',
-      //   html: '<h1>Demo from MeetSynk</h1>'
-      // });
+       emailService.sendWelcomeEmail({
+        email,
+        name
+      });
       if(password){
         res.json({
           success: true,
