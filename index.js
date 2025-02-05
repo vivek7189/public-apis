@@ -847,7 +847,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
     }
     // send email from our domain
     emailService.sendMeetingInviteEmail(emailData)
-    //end email from meetsynk
+    //end email from meetsynk 
 
     /// email gmail send END
     if (phoneNumber) {
