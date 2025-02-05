@@ -1785,3 +1785,178 @@ app.post('/meetflow/billing', async (req, res) => {
     });
   }
 });
+
+
+app.post('/meetflow/calendar-analysis', async (req, res) => {
+  try {
+    const {
+      startDate,
+      endDate,
+      email = "malik.vk07@gmail.com"
+    } = req.body;
+
+    // Validate dates
+    const validStartDate = new Date(startDate);
+    const validEndDate = new Date(endDate);
+
+    if (isNaN(validStartDate.getTime()) || isNaN(validEndDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid date format'
+      });
+    }
+
+    // Ensure startDate is before endDate
+    if (validStartDate > validEndDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Start date must be before end date'
+      });
+    }
+
+    // Get user from database
+    const userSnapshot = await db.collection('meetflow_user_data')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userData = userSnapshot.docs[0].data();
+
+    // Format dates for Google Calendar API
+    const timeMin = validStartDate.toISOString();
+    const timeMax = validEndDate.toISOString();
+
+    // Get valid access token
+    const { accessToken } = await tokenService.getValidToken(userData);
+
+    // Fetch events from Google Calendar
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+      `timeMin=${timeMin}&timeMax=${timeMax}&` +
+      `singleEvents=true&orderBy=startTime`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to fetch events');
+    }
+
+    const calendarData = await response.json();
+
+    // Process and analyze the calendar data
+    const analyzedData = analyzeCalendarData(calendarData.items);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        timeRange: {
+          start: timeMin,
+          end: timeMax
+        },
+        analysis: analyzedData,
+        rawEvents: calendarData.items
+      }
+    });
+
+  } catch (error) {
+    console.error('Calendar analysis error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
+    });
+  }
+});
+
+// Helper function to analyze calendar data
+function analyzeCalendarData(events) {
+  // Skip events without proper datetime
+  const validEvents = events.filter(event => 
+    event.start?.dateTime && event.end?.dateTime
+  );
+
+  // Group events by hour of day
+  const hourlyDistribution = {};
+  for (let i = 0; i < 24; i++) {
+    hourlyDistribution[i] = 0;
+  }
+
+  // Analyze meeting patterns
+  const analysis = {
+    totalMeetings: validEvents.length,
+    averageDuration: 0,
+    hourlyDistribution,
+    weekdayDistribution: {
+      0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 // Sunday to Saturday
+    },
+    mostCommonDuration: 0,
+    mostPopularHour: null,
+    meetingTypes: {}
+  };
+
+  let totalDuration = 0;
+  const durationFrequency = {};
+
+  validEvents.forEach(event => {
+    const startTime = new Date(event.start.dateTime);
+    const endTime = new Date(event.end.dateTime);
+    const duration = (endTime - startTime) / (1000 * 60); // Duration in minutes
+    
+    // Track duration
+    totalDuration += duration;
+    durationFrequency[duration] = (durationFrequency[duration] || 0) + 1;
+
+    // Track hour distribution
+    const hour = startTime.getHours();
+    analysis.hourlyDistribution[hour]++;
+
+    // Track weekday distribution
+    const weekday = startTime.getDay();
+    analysis.weekdayDistribution[weekday]++;
+
+    // Track meeting types (based on summary/title patterns)
+    const type = categorizeMeeting(event.summary);
+    analysis.meetingTypes[type] = (analysis.meetingTypes[type] || 0) + 1;
+  });
+
+  // Calculate averages and most common patterns
+  if (validEvents.length > 0) {
+    analysis.averageDuration = totalDuration / validEvents.length;
+    analysis.mostCommonDuration = Object.entries(durationFrequency)
+      .sort((a, b) => b[1] - a[1])[0]?.[0];
+    analysis.mostPopularHour = Object.entries(analysis.hourlyDistribution)
+      .sort((a, b) => b[1] - a[1])[0]?.[0];
+  }
+
+  return analysis;
+}
+
+// Helper function to categorize meetings based on title
+function categorizeMeeting(summary = '') {
+  const lowercase = summary.toLowerCase();
+  if (lowercase.includes('1:1') || lowercase.includes('one on one')) {
+    return '1:1';
+  }
+  if (lowercase.includes('team') || lowercase.includes('standup')) {
+    return 'Team Meeting';
+  }
+  if (lowercase.includes('interview') || lowercase.includes('hiring')) {
+    return 'Interview';
+  }
+  if (lowercase.includes('client') || lowercase.includes('customer')) {
+    return 'Client Meeting';
+  }
+  return 'Other';
+}
