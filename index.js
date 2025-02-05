@@ -700,7 +700,6 @@ app.post('/schedule-meeting', async (req, res) => {
       name="NA",
       email="vivekkumar7189@gmail.com",
       notes="ada",
-      location,
       timeZone="Asia/Calcutta",
       currentEmail="malik.vk07@gmail.com",
       phoneNumber = "+917042330092"
@@ -709,20 +708,19 @@ app.post('/schedule-meeting', async (req, res) => {
     .where('email', '==', currentEmail)
     .limit(1)
     .get();
-
+    const userEventSnapshot = await db.collection('meetflow_user_event')
+    .where('email', '==', currentEmail)
+    .limit(1)
+    .get();
+    
   if (userSnapshot.empty) {
     throw new Error('User not found');
   }
 
   const userData = userSnapshot.docs[0].data();
+  const userEventData = userEventSnapshot.docs[0].data();
 
-  // Log the raw input
-  console.log('Raw input:', {
-    selectedDate,
-    selectedTime,
-    timeZone,
-    serverTime: new Date().toISOString()
-  });
+  // Log the raw in
 
   // Parse time components
   const [timeStr, period] = selectedTime.split(' ');
@@ -743,14 +741,14 @@ app.post('/schedule-meeting', async (req, res) => {
   const meetingDateTime = moment.tz(dateTimeString, 'YYYY-MM-DD HH:mm', timeZone);
   const meetingEndTime = meetingDateTime.clone().add(1, 'hour');
 
-  console.log('Parsed times:', {
-    originalInput: `${selectedDate} ${selectedTime}`,
-    parsedStartTime: meetingDateTime.format(),
-    parsedEndTime: meetingEndTime.format(),
-    timeZone: timeZone
-  });
-  let meetingLinkFinal=location?.meetingLink || 'NA'
-  if(location?.type === 'google-meet'){
+  // console.log('Parsed times:', {
+  //   originalInput: `${selectedDate} ${selectedTime}`,
+  //   parsedStartTime: meetingDateTime.format(),
+  //   parsedEndTime: meetingEndTime.format(),
+  //   timeZone: timeZone
+  // });
+  let meetingLinkFinal=userEventData?.location?.meetingLink || 'NA'
+  if(userEventData?.location?.type === 'google-meet'){
 
 
   // Create event details using the timezone-aware times
