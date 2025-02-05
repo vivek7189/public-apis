@@ -702,15 +702,15 @@ app.post('/schedule-meeting', async (req, res) => {
       notes="ada",
       timeZone="Asia/Calcutta",
       currentEmail="malik.vk07@gmail.com",
-      phoneNumber = "+917042330092"
+      phoneNumber = "+917042330092",
+      eventID
     } = req.body;
     const userSnapshot = await db.collection('meetflow_user_data')
     .where('email', '==', currentEmail)
     .limit(1)
     .get();
     const userEventSnapshot = await db.collection('meetflow_user_event')
-    .where('email', '==', currentEmail)
-    .limit(1)
+    .doc(eventID)
     .get();
     
   if (userSnapshot.empty) {
@@ -718,7 +718,7 @@ app.post('/schedule-meeting', async (req, res) => {
   }
 
   const userData = userSnapshot.docs[0].data();
-  const userEventData = userEventSnapshot.docs[0].data();
+  const userEventData = userEventSnapshot?.data();
 
   // Log the raw in
 
