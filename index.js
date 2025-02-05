@@ -387,14 +387,15 @@ app.post('/meetflow/signup', async (req, res) => {
     });
   }
 });
+
 app.post('/meetflow/login', async (req, res) => {
   try {
     const { email, phoneNumber, password, otp } = req.body;
-
+    
     // Check for valid authentication pairs
     const isEmailPassword = email && password;
     const isPhoneOTP = phoneNumber && otp;
-
+    
     // Validate exactly one authentication method is provided
     if (!isEmailPassword && !isPhoneOTP) {
       return res.status(400).json({
@@ -402,17 +403,17 @@ app.post('/meetflow/login', async (req, res) => {
         error: 'Please provide either email + password OR phone number + OTP'
       });
     }
-
+    
     if (isEmailPassword && isPhoneOTP) {
       return res.status(400).json({
         success: false,
         error: 'Please provide only one authentication method'
       });
     }
-
+    
     const usersRef = db.collection('meetflow_user_data');
     let userSnapshot;
-
+    
     // Query user based on auth method
     if (isEmailPassword) {
       userSnapshot = await usersRef
@@ -425,7 +426,7 @@ app.post('/meetflow/login', async (req, res) => {
         .limit(1)
         .get();
     }
-
+    
     // Check if user exists
     if (userSnapshot.empty) {
       return res.status(404).json({
@@ -436,10 +437,9 @@ app.post('/meetflow/login', async (req, res) => {
 
     const userDoc = userSnapshot.docs[0];
     const userData = userDoc.data();
-
+    
     // Verify credentials based on auth method
     if (isEmailPassword) {
-      // In production, use bcrypt.compare
       if (userData.customLogin?.password !== password) {
         return res.status(401).json({
           success: false,
@@ -447,16 +447,16 @@ app.post('/meetflow/login', async (req, res) => {
         });
       }
     }
-
+    
     // Generate new token set after successful authentication
     const tokenManager = new TokenManager(db);
     const tokenData = await tokenManager.generateTokenSet();
-
-    // Create customLogin object with user data except email and phone
+    
+    // Create customLogin object with null checks and default values
     const customLogin = {
-      name: userData.customLogin?.name,
-      picture: userData.customLogin?.picture,
-      calanderConnected: userData.customLogin?.calanderConnected,
+      name: userData.customLogin?.name || null,
+      picture: userData.customLogin?.picture || null,
+      calanderConnected: userData.customLogin?.calanderConnected || false,
       accessToken: tokenData.accessToken,
       tokenType: tokenData.tokenType,
       tokenExpiryDate: tokenData.tokenExpiryDate,
@@ -467,26 +467,26 @@ app.post('/meetflow/login', async (req, res) => {
       refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
       lastTokenRefresh: tokenData.lastTokenRefresh
     };
-
+    
     // Update user with new structure
     await userDoc.ref.update({
-      email: userData.email,
+      email: userData.email || null,
       customLogin
     });
-
+    
     // Prepare response data
     const responseData = {
       userId: userDoc.id,
-      email: userData.email,
-      phoneNumber: userData.phoneNumber,
+      email: userData.email || null,
+      phoneNumber: userData.phoneNumber || null,
       customLogin
     };
-
+    
     return res.status(200).json({
       success: true,
       data: responseData
     });
-
+    
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({
@@ -495,6 +495,7 @@ app.post('/meetflow/login', async (req, res) => {
     });
   }
 });
+
 app.post('/meetflow/user', async (req, res) => {
   try {
     const {
