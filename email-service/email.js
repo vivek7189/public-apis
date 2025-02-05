@@ -156,8 +156,8 @@ The MeetSynk Team
 
         <!-- Trust & Security -->
         <div style="padding: 16px; background-color: #F3F4F6; border-radius: 8px; border-left: 4px solid #F59E0B;">
-          <h3 style="color: #1F2937; margin: 0 0 8px 0;">🛡️ AI based event insights</h3>
-          <p style="color: #6B7280; margin: 0;">AI based event insights of events and calendar.</p>
+          <h3 style="color: #1F2937; margin: 0 0 8px 0;">🛡️ Create custom page</h3>
+          <p style="color: #6B7280; margin: 0;">Design a more detailed and branded custom page.</p>
         </div>
       </div>
 
