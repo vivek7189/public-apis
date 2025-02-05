@@ -697,9 +697,10 @@ app.post('/schedule-meeting', async (req, res) => {
     const {
       selectedDate="2025-01-23",
       selectedTime="3:45 PM",
-      name="dada",
+      name="NA",
       email="vivekkumar7189@gmail.com",
       notes="ada",
+      location,
       timeZone="Asia/Calcutta",
       currentEmail="malik.vk07@gmail.com",
       phoneNumber = "+917042330092"
@@ -748,6 +749,9 @@ app.post('/schedule-meeting', async (req, res) => {
     parsedEndTime: meetingEndTime.format(),
     timeZone: timeZone
   });
+  let meetingLinkFinal=location?.meetingLink || 'NA'
+  if(location?.type === 'google-meet'){
+
 
   // Create event details using the timezone-aware times
   const eventDetails = {
@@ -795,7 +799,7 @@ app.post('/schedule-meeting', async (req, res) => {
   }
 
   const eventData = await calendarResponse.json();
-
+  meetingLinkFinal = eventData?.hangoutLink
    // Create gmail email content
     const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
@@ -842,11 +846,14 @@ Subject: Meeting Confirmation: Meeting with ${name}
     if (!emailResponse.ok) {
       console.warn('Email sending failed, but meeting was created');
     }
+  }else{
     const emailData={
-      email,name,meetingDateTime,timeZone,notes,hangoutLink:'NA'
+      email,name,meetingDateTime,timeZone,notes,hangoutLink:meetingLinkFinal
     }
     // send email from our domain
     emailService.sendMeetingInviteEmail(emailData)
+  }
+   
     //end email from meetsynk 
 
     /// email gmail send END
@@ -855,7 +862,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
         name,
         phoneNumber,
         meetingDateTime: meetingDateTime.toDate(),
-        meetingLink: eventData.hangoutLink || '--',
+        meetingLink: meetingLinkFinal,
         timeZone
       };
       await sendWhatsAppMessage(meetingDetails)
