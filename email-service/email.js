@@ -111,7 +111,7 @@ Welcome to MeetSynk! You've just unlocked a smarter way to schedule meetings.
 Key Features:
 - AI-Powered Scheduling: Intelligent time suggestions based on your preferences
 - WhatsApp Reminders: Never miss a meeting with instant notifications
-- Trusted by 10,000+ professionals worldwide
+- Trusted by professionals worldwide
 - Bank-grade encryption for your data security
 - Smart conflict resolution
 - Multi-timezone support
@@ -156,8 +156,8 @@ The MeetSynk Team
 
         <!-- Trust & Security -->
         <div style="padding: 16px; background-color: #F3F4F6; border-radius: 8px; border-left: 4px solid #F59E0B;">
-          <h3 style="color: #1F2937; margin: 0 0 8px 0;">🛡️ Enterprise-Grade Security</h3>
-          <p style="color: #6B7280; margin: 0;">Bank-level encryption and trusted by 10,000+ professionals worldwide.</p>
+          <h3 style="color: #1F2937; margin: 0 0 8px 0;">🛡️ AI based event insights</h3>
+          <p style="color: #6B7280; margin: 0;">AI based event insights of events and calendar.</p>
         </div>
       </div>
 
@@ -166,23 +166,7 @@ The MeetSynk Team
         <a href="https://www.meetsynk.com" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Schedule Your First Meeting</a>
       </div>
 
-      <!-- Stats -->
-      <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin-bottom: 32px;">
-        <div style="text-align: center; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-          <div>
-            <h4 style="color: #4F46E5; margin: 0; font-size: 24px;">10K+</h4>
-            <p style="color: #6B7280; margin: 4px 0 0 0; font-size: 14px;">Active Users</p>
-          </div>
-          <div>
-            <h4 style="color: #4F46E5; margin: 0; font-size: 24px;">99.9%</h4>
-            <p style="color: #6B7280; margin: 4px 0 0 0; font-size: 14px;">Uptime</p>
-          </div>
-          <div>
-            <h4 style="color: #4F46E5; margin: 0; font-size: 24px;">50+</h4>
-            <p style="color: #6B7280; margin: 4px 0 0 0; font-size: 14px;">Integrations</p>
-          </div>
-        </div>
-      </div>
+     
     </div>
 
     <!-- Footer -->
