@@ -449,37 +449,36 @@ app.post('/meetflow/login', async (req, res) => {
     }
     
     // Generate new token set after successful authentication
-    const tokenManager = new TokenManager(db);
-    const tokenData = await tokenManager.generateTokenSet();
+    //const tokenManager = new TokenManager(db);
+    //const tokenData = await tokenManager.generateTokenSet();
     
     // Create customLogin object with null checks and default values
-    const customLogin = {
-      name: userData.customLogin?.name || null,
-      picture: userData.customLogin?.picture || null,
-      calanderConnected: userData.customLogin?.calanderConnected || false,
-      accessToken: tokenData.accessToken,
-      tokenType: tokenData.tokenType,
-      tokenExpiryDate: tokenData.tokenExpiryDate,
-      lastLoginAt: new Date().toISOString(),
-      // Token management fields inside customLogin
-      refreshToken: tokenData.refreshToken,
-      refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
-      refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
-      lastTokenRefresh: tokenData.lastTokenRefresh
-    };
+    // const customLogin = {
+    //   name: userData.customLogin?.name || null,
+    //   picture: userData.customLogin?.picture || null,
+    //   calanderConnected: userData.customLogin?.calanderConnected || false,
+    //   accessToken: tokenData.accessToken,
+    //   tokenType: tokenData.tokenType,
+    //   tokenExpiryDate: tokenData.tokenExpiryDate,
+    //   lastLoginAt: new Date().toISOString(),
+    //   // Token management fields inside customLogin
+    //   refreshToken: tokenData.refreshToken,
+    //   refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
+    //   refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
+    //   lastTokenRefresh: tokenData.lastTokenRefresh
+    // };
     
     // Update user with new structure
-    await userDoc.ref.update({
-      email: userData.email || null,
-      customLogin
-    });
+    // await userDoc.ref.update({
+    //   email: userData.email || null,
+    //   customLogin
+    // });
     
     // Prepare response data
     const responseData = {
       userId: userDoc.id,
       email: userData.email || null,
       phoneNumber: userData.phoneNumber || null,
-      customLogin
     };
     
     return res.status(200).json({
