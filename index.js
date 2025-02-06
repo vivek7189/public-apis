@@ -2010,10 +2010,16 @@ function categorizeMeeting(summary = '') {
 app.post('/meetsynk/razorpay/create-order', async (req, res) => {
   try {
     const { amount, currency = 'INR', planId, email } = req.body;
+    const amountInPaise = Math.round(Number(amount) * 100);
+
+    console.log('Creating order with amount:', {
+      originalAmount: amount,
+      amountInPaise: amountInPaise
+    });
 
     // Create Razorpay order
     const order = await razorpay.orders.create({
-      amount: amount * 100, // convert to paise
+      amount: amountInPaise, // convert to paise
       currency,
       receipt: `rcpt_${Date.now()}`,
       notes: {
