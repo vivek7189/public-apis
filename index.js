@@ -28,7 +28,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // }));
 
 // Initialize Storage with application default credentials
-const storage = new Storage();
+const storage = new Storage(); 
 const bucket = storage.bucket('demoimage-7189');
 
 // Initialize Firebase Admin with application default credentials
