@@ -9,6 +9,8 @@ const TokenService = require('./token/token');
 const TokenManager = require('./token/token_manager');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
+// Using require (CommonJS)
+const crypto = require('crypto');
 const axios = require('axios');
 const app = express();
 const emailService = require('./email-service/email');
