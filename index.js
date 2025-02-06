@@ -805,7 +805,27 @@ app.post('/schedule-meeting', async (req, res) => {
   const eventData = await calendarResponse.json();
   meetingLinkFinal = eventData?.hangoutLink
 
-  await saveMeeting({email,name,meetingDateTime,timeZone,notes,hangoutLink:meetingLinkFinal});
+  const meetingDataForG = {
+    id: eventData.id,
+    summary: `Meeting with ${name}`,
+    description: notes || '',
+    start: {
+      dateTime: meetingDateTime.format(),
+      timeZone: timeZone
+    },
+    end: {
+      dateTime: meetingEndTime.format(),
+      timeZone: timeZone
+    },
+    hangoutLink: meetingLinkFinal,
+    htmlLink: eventData.htmlLink,
+    status: 'confirmed',
+    attendees: [{ email }],
+    creator: { email: currentEmail },
+    organizer: { email: currentEmail }
+  };
+  
+  await saveMeeting(meetingDataForG);
    // Create gmail email content
     const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
@@ -858,7 +878,27 @@ Subject: Meeting Confirmation: Meeting with ${name}
     }
     // send email from our domain
     emailService.sendMeetingInviteEmail(emailData)
-    await saveMeeting(emailData);
+    const meetingDataNonG = {
+      id: Date.now().toString(),
+      summary: `Meeting with ${name}`,
+      description: notes || '',
+      start: {
+        dateTime: meetingDateTime.format(),
+        timeZone: timeZone
+      },
+      end: {
+        dateTime: meetingEndTime.format(),
+        timeZone: timeZone
+      },
+      hangoutLink: meetingLinkFinal,
+      htmlLink: null,
+      status: 'confirmed',
+      attendees: [{ email }],
+      creator: { email: currentEmail },
+      organizer: { email: currentEmail }
+    };
+    
+    await saveMeeting(meetingDataNonG);
   }
    
     //end email from meetsynk 
@@ -924,25 +964,30 @@ Subject: Meeting Confirmation: Meeting with ${name}
     });
   }
 });
+
 // {email,name,meetingDateTime,timeZone,notes,hangoutLink:meetingLinkFinal}
 const saveMeeting = async (eventData) => {
   await db.collection('meetflow_user_meetings').add({
-    eventId: Date.now().toString(),
-    description: eventData?.notes || '',
+    id: eventData?.id || Date.now().toString(),
+    summary: eventData?.summary || 'Untitled Meeting',
+    description: eventData?.description || '',
+    start: eventData?.start || { dateTime: new Date().toISOString() },
+    end: eventData?.end || { dateTime: new Date().toISOString() },
+    hangoutLink: eventData?.hangoutLink || 'NA',
+    htmlLink: eventData?.htmlLink || null,
+    status: eventData?.status || 'confirmed',
+    attendees: Array.isArray(eventData?.attendees) ? eventData.attendees : [],
+    creator: eventData?.creator || {},
+    organizer: eventData?.organizer || {},
     createdAt: new Date(),
-    meetingTime: eventData?.meetingDateTime || new Date(),
-    timeZone: eventData?.timeZone || 'UTC',
-    meetingLink: eventData?.hangoutLink || 'NA',
-    source: 'meetsynk',
-    guestEmail: eventData?.email || '',
-    guestName: eventData?.name || ''
+    source: 'meetsynk'
   });
  };
 app.post('/meetflow/meetings', async (req, res) => {
   try {
     const { email } = req.body;
     
-    const meetings = await db.collection('meetflow_user_meeting')
+    const meetings = await db.collection('meetflow_user_meetings')
       .where('organizer', '==', email)
       .orderBy('createdAt', 'desc')
       .get();
