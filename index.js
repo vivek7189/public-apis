@@ -1965,3 +1965,39 @@ function categorizeMeeting(summary = '') {
   }
   return 'Other';
 }
+
+
+// payment
+
+app.post('/meetsynk/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+      // Verify webhook signature
+      const signature = req.headers['x-razorpay-signature'];
+      const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET);
+      shasum.update(JSON.stringify(req.body));
+      const digest = shasum.digest('hex');
+
+      if (digest !== signature) {
+          return res.status(400).json({ error: 'Invalid signature' });
+      }
+
+      // Create simplified payment document
+      const paymentDoc = {
+          fullPayload: req.body,
+          webhookReceivedAt: new Date(),
+          event: req.body.event,
+          status: req.body.payload.payment?.entity?.status || null,
+          email: req.body.payload.payment?.entity?.email || null
+      };
+
+      // Store in meetsynk_payment collection
+      await db.collection('meetsynk_payment').add(paymentDoc);
+
+      res.json({ status: 'ok' });
+
+  } catch (error) {
+      console.error('Webhook error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+});
+// payment webhook
