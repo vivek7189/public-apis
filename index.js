@@ -11,6 +11,7 @@ const cors = require('cors');
 const fetch = require('node-fetch'); 
 // Using require (CommonJS)
 const crypto = require('crypto');
+const Razorpay = require('razorpay');
 const axios = require('axios');
 const app = express();
 const emailService = require('./email-service/email');
@@ -19,7 +20,10 @@ app.use(express.json());
 
 
 
-
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
+});
 
 const upload = multer({ storage: multer.memoryStorage() });
 //app.use(express.static('public'));
@@ -1971,8 +1975,163 @@ function categorizeMeeting(summary = '') {
 
 // payment
 
-app.post('/meetsynk/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+// app.post('/meetsynk/razorpay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+//   try {
+//       // Verify webhook signature
+//       const signature = req.headers['x-razorpay-signature'];
+//       const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET);
+//       shasum.update(JSON.stringify(req.body));
+//       const digest = shasum.digest('hex');
+
+//       if (digest !== signature) {
+//           return res.status(400).json({ error: 'Invalid signature' });
+//       }
+
+//       // Create simplified payment document
+//       const paymentDoc = {
+//           fullPayload: req.body,
+//           webhookReceivedAt: new Date(),
+//           event: req.body.event,
+//           status: req.body.payload.payment?.entity?.status || null,
+//           email: req.body.payload.payment?.entity?.email || null
+//       };
+
+//       // Store in meetsynk_payment collection
+//       await db.collection('meetsynk_payment').add(paymentDoc);
+
+//       res.json({ status: 'ok' });
+
+//   } catch (error) {
+//       console.error('Webhook error:', error);
+//       res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
+
+app.post('/meetsynk/razorpay/create-order', async (req, res) => {
   try {
+    const { amount, currency = 'INR', planId, email } = req.body;
+
+    // Create Razorpay order
+    const order = await razorpay.orders.create({
+      amount: amount * 100, // convert to paise
+      currency,
+      receipt: `rcpt_${Date.now()}`,
+      notes: {
+        planId,
+        email
+      }
+    });
+
+    // Store order in database
+    await db.collection('meetsynk_orders').add({
+      orderId: order.id,
+      amount: amount * 100,
+      currency,
+      planId,
+      email,
+      status: 'created',
+      createdAt: new Date()
+    });
+
+    res.json({ 
+      success: true, 
+      order: {
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency
+      }
+    });
+
+  } catch (error) {
+    console.error('Order creation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to create order' 
+    });
+  }
+});
+
+// 2. Verify Payment API
+app.post('/meetsynk/razorpay/verify', async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      planId
+    } = req.body;
+
+    // Verify signature
+    const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+    shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const digest = shasum.digest('hex');
+
+    if (digest !== razorpay_signature) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid signature' 
+      });
+    }
+
+    // Get order details from database
+    const orderSnapshot = await db.collection('meetsynk_orders')
+      .where('orderId', '==', razorpay_order_id)
+      .limit(1)
+      .get();
+
+    if (orderSnapshot.empty) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Order not found' 
+      });
+    }
+
+    const orderDoc = orderSnapshot.docs[0];
+    const orderData = orderDoc.data();
+
+    // Create payment record
+    const paymentDoc = {
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+      planId,
+      email: orderData.email,
+      amount: orderData.amount,
+      status: 'verified',
+      verifiedAt: new Date()
+    };
+
+    await db.collection('meetsynk_payment').add(paymentDoc);
+
+    // Update order status
+    await orderDoc.ref.update({
+      status: 'paid',
+      paymentId: razorpay_payment_id,
+      updatedAt: new Date()
+    });
+
+    // Update user subscription
+    await updateUserSubscription(orderData.email, planId);
+
+    res.json({ 
+      success: true, 
+      message: 'Payment verified successfully' 
+    });
+
+  } catch (error) {
+    console.error('Payment verification error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Payment verification failed' 
+    });
+  }
+});
+
+// 3. Webhook Handler (your existing code with some enhancements)
+app.post('/meetsynk/razorpay/webhook', 
+  express.raw({ type: 'application/json' }), 
+  async (req, res) => {
+    try {
       // Verify webhook signature
       const signature = req.headers['x-razorpay-signature'];
       const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET);
@@ -1980,26 +2139,114 @@ app.post('/meetsynk/razorpay/webhook', express.raw({ type: 'application/json' })
       const digest = shasum.digest('hex');
 
       if (digest !== signature) {
-          return res.status(400).json({ error: 'Invalid signature' });
+        return res.status(400).json({ error: 'Invalid signature' });
       }
+
+      const event = req.body.event;
+      const payment = req.body.payload.payment?.entity;
 
       // Create simplified payment document
       const paymentDoc = {
-          fullPayload: req.body,
-          webhookReceivedAt: new Date(),
-          event: req.body.event,
-          status: req.body.payload.payment?.entity?.status || null,
-          email: req.body.payload.payment?.entity?.email || null
+        fullPayload: req.body,
+        webhookReceivedAt: new Date(),
+        event,
+        orderId: payment?.order_id,
+        paymentId: payment?.id,
+        status: payment?.status || null,
+        email: payment?.email || null,
+        amount: payment?.amount,
+        currency: payment?.currency
       };
 
       // Store in meetsynk_payment collection
       await db.collection('meetsynk_payment').add(paymentDoc);
 
+      // Handle specific events
+      if (event === 'payment.captured') {
+        // Update order status
+        const orderRef = db.collection('meetsynk_orders')
+          .where('orderId', '==', payment.order_id);
+        
+        const orderSnapshot = await orderRef.get();
+        if (!orderSnapshot.empty) {
+          const orderDoc = orderSnapshot.docs[0];
+          await orderDoc.ref.update({
+            status: 'paid',
+            paymentId: payment.id,
+            updatedAt: new Date()
+          });
+
+          // Update user subscription if not already updated
+          const orderData = orderDoc.data();
+          if (orderData.planId && payment.email) {
+            await updateUserSubscription(payment.email, orderData.planId);
+          }
+        }
+      }
+
       res.json({ status: 'ok' });
 
-  } catch (error) {
+    } catch (error) {
       console.error('Webhook error:', error);
       res.status(500).json({ error: 'Internal server error' });
-  }
+    }
 });
+
+// Helper function to update user subscription
+async function updateUserSubscription(email, planId) {
+  try {
+    const usersRef = db.collection('meetflow_user_data');
+    const userSnapshot = await usersRef
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      throw new Error('User not found');
+    }
+
+    const userDoc = userSnapshot.docs[0];
+    const userData = userDoc.data();
+    const currentDate = new Date();
+    
+    // Get existing billing data or create new one
+    const billingData = userData.billing || {
+      currentPlan: 'free',
+      status: 'active',
+      nextBillingDate: 'NA',
+      lastPaymentDate: 'NA',
+      lastUpdated: currentDate.toISOString()
+    };
+
+    // Update billing information
+    const updatedBilling = {
+      ...billingData,
+      currentPlan: getPlanTitle(planId), // Convert planId to plan title
+      status: 'active',
+      lastPaymentDate: currentDate.toISOString(),
+      nextBillingDate: new Date(currentDate.setMonth(currentDate.getMonth() + 1)).toISOString(),
+      lastUpdated: new Date().toISOString()
+    };
+
+    // Update user document
+    await userDoc.ref.update({
+      billing: updatedBilling
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Update subscription error:', error);
+    throw error;
+  }
+}
+
+// Helper function to convert planId to plan title
+function getPlanTitle(planId) {
+  const planMap = {
+    'basic': 'Basic Plan',
+    'pro': 'Pro Plan',
+    'advanced': 'Advanced Plan'
+  };
+  return planMap[planId] || 'Free Plan';
+}
 // payment webhook
