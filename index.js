@@ -795,7 +795,7 @@ app.post('/schedule-meeting', async (req, res) => {
       body: JSON.stringify(eventDetails)
     }
   );
-
+  
   if (!calendarResponse.ok) {
     const errorData = await calendarResponse.json();
     //console.error('Calendar API error:', errorData);
@@ -804,6 +804,8 @@ app.post('/schedule-meeting', async (req, res) => {
 
   const eventData = await calendarResponse.json();
   meetingLinkFinal = eventData?.hangoutLink
+
+  await saveMeeting({email,name,meetingDateTime,timeZone,notes,hangoutLink:meetingLinkFinal});
    // Create gmail email content
     const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
@@ -856,6 +858,7 @@ Subject: Meeting Confirmation: Meeting with ${name}
     }
     // send email from our domain
     emailService.sendMeetingInviteEmail(emailData)
+    await saveMeeting(emailData);
   }
    
     //end email from meetsynk 
@@ -921,8 +924,57 @@ Subject: Meeting Confirmation: Meeting with ${name}
     });
   }
 });
+// {email,name,meetingDateTime,timeZone,notes,hangoutLink:meetingLinkFinal}
+const saveMeeting = async (eventData) => {
+  await db.collection('meetflow_user_meetings').add({
+    eventId: Date.now().toString(),
+    description: eventData?.notes || '',
+    createdAt: new Date(),
+    meetingTime: eventData?.meetingDateTime || new Date(),
+    timeZone: eventData?.timeZone || 'UTC',
+    meetingLink: eventData?.hangoutLink || 'NA',
+    source: 'meetsynk',
+    guestEmail: eventData?.email || '',
+    guestName: eventData?.name || ''
+  });
+ };
+app.post('/meetflow/meetings', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    const meetings = await db.collection('meetflow_user_meeting')
+      .where('organizer', '==', email)
+      .orderBy('createdAt', 'desc')
+      .get();
 
+    const meetingsData = meetings.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      source: doc.data().source || 'meetsynk',
+      summary: doc.data().title,
+      start: {
+        dateTime: doc.data().start.dateTime,
+        timeZone: doc.data().timeZone
+      },
+      end: {
+        dateTime: doc.data().end.dateTime,
+        timeZone: doc.data().timeZone
+      }
+    }));
 
+    res.json({
+      success: true,
+      data: meetingsData
+    });
+
+  } catch (error) {
+    console.error('Error fetching meetings:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch meetings'
+    });
+  }
+});
 
 function getMonthRange(dateString) {
   const date = new Date(dateString);
