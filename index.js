@@ -983,7 +983,7 @@ const saveMeeting = async (eventData) => {
     source: 'meetsynk'
   });
  };
-app.post('/meetflow/meetings', async (req, res) => {
+ app.post('/meetflow/meetings', async (req, res) => {
   try {
     const { email } = req.body;
     
@@ -991,27 +991,13 @@ app.post('/meetflow/meetings', async (req, res) => {
       .where('organizer', '==', email)
       .orderBy('createdAt', 'desc')
       .get();
-
-    const meetingsData = meetings.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      source: doc.data().source || 'meetsynk',
-      summary: doc.data().title,
-      start: {
-        dateTime: doc.data().start.dateTime,
-        timeZone: doc.data().timeZone
-      },
-      end: {
-        dateTime: doc.data().end.dateTime,
-        timeZone: doc.data().timeZone
-      }
-    }));
-
+    
+    const meetingsData = meetings.docs.map(doc => doc.data());
+    
     res.json({
       success: true,
       data: meetingsData
     });
-
   } catch (error) {
     console.error('Error fetching meetings:', error);
     res.status(500).json({
