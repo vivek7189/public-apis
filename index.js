@@ -748,6 +748,17 @@ app.post('/meetingflow/cancelevent', async (req, res) => {
     const meetingDoc = query.docs[0];
     const googleEventId = meetingDoc.data().id;
 
+    const userSnapshot = await db.collection('meetflow_user_data')
+    .where('email', '==', email)
+    .limit(1)
+    .get();
+    
+  if (userSnapshot.empty) {
+    throw new Error('User not found');
+  }
+
+  const userData = userSnapshot.docs[0].data();
+
     // Cancel Google Calendar event
     const { accessToken } = await tokenService.getValidToken(userData);
     const googleResponse = await fetch(
