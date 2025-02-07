@@ -738,7 +738,7 @@ app.post('/meetingflow/cancelevent', async (req, res) => {
 
     // Get meeting from Firestore
     const query = await db.collection('meetflow_user_meetings')
-      .where('eventID', '==', id)
+      .where('id', '==', id)
       .where('email', '==', email)
       .limit(1)
       .get();
