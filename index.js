@@ -731,6 +731,44 @@ app.post('/meetingflow/eventdetails', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.post('/meetingflow/cancelevent', async (req, res) => {
+  try {
+    const { id, email } = req.body;
+    if (!id || !email) return res.status(400).json({ error: 'Email and ID required' });
+
+    // Get meeting from Firestore
+    const query = await db.collection('meetflow_user_meetings')
+      .where('eventID', '==', id)
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (query.empty) return res.status(404).json({ error: 'Meeting not found' });
+
+    const meetingDoc = query.docs[0];
+    const googleEventId = meetingDoc.data().id;
+
+    // Cancel Google Calendar event
+    const { accessToken } = await tokenService.getValidToken(userData);
+    const googleResponse = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}?sendUpdates=all`,
+      {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      }
+    );
+
+    if (!googleResponse.ok) throw new Error('Failed to cancel Google Calendar event');
+
+    // Delete from Firestore
+    await meetingDoc.ref.delete();
+    res.status(200).json({ message: 'Meeting cancelled successfully' });
+
+  } catch (error) {
+    console.error('Cancel meeting error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.post('/schedule-meeting', async (req, res) => {
   try {
@@ -744,7 +782,7 @@ app.post('/schedule-meeting', async (req, res) => {
       currentEmail="malik.vk07@gmail.com",
       phoneNumber = "+917042330092",
       eventID,
-      isReschedule = false
+      isReschedule = false,
     } = req.body;
     const userSnapshot = await db.collection('meetflow_user_data')
     .where('email', '==', currentEmail)
