@@ -1818,7 +1818,53 @@ app.post('/meetflow/apps/data', async (req, res) => {
     });
   }
 });
+app.post('/meetflow/appdata', async (req, res) => {
+  try {
+    const { email } = req.body;
 
+    // Validate email in request body
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required in request body'
+      });
+    }
+
+    // Reference to users collection
+    const usersRef = db.collection('meetflow_user_data');
+    
+    // Query for user with matching email
+    const userSnapshot = await usersRef
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    // Check if user exists
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Get user data
+    const userData = userSnapshot.docs[0].data();
+
+    // Return apps data
+    return res.status(200).json({
+      success: true,
+      data: userData.appsData || [],
+      message: 'Apps data retrieved successfully'
+    });
+
+  } catch (error) {
+    console.error('Error retrieving apps data:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
+    });
+  }
+});
 // 2. Check Connection Status
 app.get('/meetflow/zoom/status', async (req, res) => {
   try {
