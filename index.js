@@ -698,6 +698,40 @@ const generateCalendarUrl = (name) => {
 
 
 
+
+app.post('/meetingflow/eventdetails', async (req, res) => {
+  try {
+    const { id, email } = req.body;
+
+    if (!email || !id) {
+      return res.status(400).json({ error: 'Email and ID are required' });
+    }
+
+    const meetingsRef = db.collection('meetflow_user_meetings');
+    const query = await meetingsRef
+      .where('eventId', '==', id)
+      .where('organizer.email', '==', email)
+      .limit(1)
+      .get();
+
+    if (query.empty) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+
+    const meetingDoc = query.docs[0];
+    const meetingData = {
+      id: meetingDoc.id,
+      ...meetingDoc.data()
+    };
+
+    res.status(200).json(meetingData);
+
+  } catch (error) {
+    console.error('Error fetching meeting:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/schedule-meeting', async (req, res) => {
   try {
     const {
@@ -709,7 +743,8 @@ app.post('/schedule-meeting', async (req, res) => {
       timeZone="Asia/Calcutta",
       currentEmail="malik.vk07@gmail.com",
       phoneNumber = "+917042330092",
-      eventID
+      eventID,
+      isReschedule = false
     } = req.body;
     const userSnapshot = await db.collection('meetflow_user_data')
     .where('email', '==', currentEmail)
@@ -828,17 +863,19 @@ app.post('/schedule-meeting', async (req, res) => {
   
   await saveMeeting(meetingDataForG);
    // Create gmail email content
+   const emailSubject = isReschedule ? 'Meeting Rescheduled' : 'Meeting Confirmation';
+    const emailGreeting = isReschedule ? 'Your meeting has been rescheduled successfully.' : 'Your meeting has been scheduled successfully.';
     const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
 From: ${currentEmail}
 To: ${email}
-Subject: Meeting Confirmation: Meeting with ${name}
+Subject: ${emailSubject}
 
 <html>
   <body>
-    <h2>Meeting Confirmation</h2>
+    <h2>${emailSubject}</h2>
     <p>Hello ${name},</p>
-    <p>Your meeting has been scheduled successfully.</p>
+    <p>${emailGreeting}</p>
     <p><strong>Date:</strong> ${meetingDateTime.format('LL')}</p>
     <p><strong>Time:</strong> ${meetingDateTime.format('LT')} ${timeZone}</p>
     <p><strong>Time Zone:</strong> ${timeZone}</p>
@@ -959,10 +996,10 @@ Subject: Meeting Confirmation: Meeting with ${name}
     });
 
   } catch (error) {
-    console.error('Server Error:', error);
+    console.error(isReschedule ? 'Reschedule Error:' : 'Scheduling Error:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to schedule meeting'
+      error: error.message || `Failed to ${isReschedule ? 'reschedule' : 'schedule'} meeting`
     });
   }
 });
