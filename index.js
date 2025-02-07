@@ -709,7 +709,7 @@ app.post('/meetingflow/eventdetails', async (req, res) => {
 
     const meetingsRef = db.collection('meetflow_user_meetings');
     const query = await meetingsRef
-      .where('eventId', '==', id)
+      .where('eventID', '==', id)
       .where('organizer.email', '==', email)
       .limit(1)
       .get();
