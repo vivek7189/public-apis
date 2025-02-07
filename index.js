@@ -822,7 +822,8 @@ app.post('/schedule-meeting', async (req, res) => {
     status: 'confirmed',
     attendees: [{ email }],
     creator: { email: currentEmail },
-    organizer: { email: currentEmail }
+    organizer: { email: currentEmail },
+    eventID
   };
   
   await saveMeeting(meetingDataForG);
@@ -895,7 +896,8 @@ Subject: Meeting Confirmation: Meeting with ${name}
       status: 'confirmed',
       attendees: [{ email }],
       creator: { email: currentEmail },
-      organizer: { email: currentEmail }
+      organizer: { email: currentEmail },
+      eventID
     };
     
     await saveMeeting(meetingDataNonG);
@@ -980,7 +982,8 @@ const saveMeeting = async (eventData) => {
     creator: eventData?.creator || {},
     organizer: eventData?.organizer || {},
     createdAt: new Date(),
-    source: 'meetsynk'
+    source: 'meetsynk',
+    eventID:eventData?.eventID
   });
  };
 
