@@ -983,23 +983,45 @@ const saveMeeting = async (eventData) => {
     source: 'meetsynk'
   });
  };
+
  app.post('/meetflow/meetings', async (req, res) => {
   try {
     const { email } = req.body;
     
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
     const meetings = await db.collection('meetflow_user_meetings')
-      .where('organizer', '==', email)
+      .where('organizer.email', '==', email)  // Changed to use organizer.email
       .orderBy('createdAt', 'desc')
       .get();
-    
-    const meetingsData = meetings.docs.map(doc => doc.data());
-    
+
+    const meetingsData = meetings.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
     res.json({
       success: true,
       data: meetingsData
     });
+
   } catch (error) {
     console.error('Error fetching meetings:', error);
+    
+    // Check if it's an index error
+    if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database index not ready. Please create an index for organizer.email and createdAt fields',
+        details: error.message
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch meetings'
