@@ -910,7 +910,8 @@ app.post('/schedule-meeting', async (req, res) => {
     eventID,
     attendeName:name,
     attednePhone:phoneNumber || 'NA',
-    meetingNotes:notes
+    meetingNotes:notes,
+    eventNameTitle:userEventData?.title
   };
   
   await saveMeeting(meetingDataForG);
@@ -989,7 +990,8 @@ Subject: ${emailSubject}
       eventID,
       attendeName:name,
       attednePhone:phoneNumber || 'NA',
-      meetingNotes:notes
+      meetingNotes:notes,
+      eventNameTitle:userEventData?.title
     };
     
     await saveMeeting(meetingDataNonG);
