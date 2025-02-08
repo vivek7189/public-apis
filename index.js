@@ -914,7 +914,7 @@ app.post('/schedule-meeting', async (req, res) => {
     eventNameTitle:userEventData?.title,
     eventSlug:userEventData?.slug
   };
-  
+  console.log('userEventData?.slug',userEventData?.slug)
   await saveMeeting(meetingDataForG);
    // Create gmail email content
    const emailSubject = isReschedule ? 'Meeting Rescheduled' : 'Meeting Confirmation';
@@ -995,7 +995,7 @@ Subject: ${emailSubject}
       eventNameTitle:userEventData?.title,
       eventSlug:userEventData?.slug
     };
-    
+    console.log('userEventData?.slug22',userEventData?.slug)
     await saveMeeting(meetingDataNonG);
   }
    
