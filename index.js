@@ -1079,7 +1079,12 @@ const saveMeeting = async (eventData) => {
     organizer: eventData?.organizer || {},
     createdAt: new Date(),
     source: 'meetsynk',
-    eventID:eventData?.eventID
+    eventID:eventData?.eventID,
+    attendeName:eventData.attendeName,
+    attednePhone:eventData.attednePhone || 'NA',
+    meetingNotes:eventData.meetingNotes,
+    eventNameTitle:eventData?.eventNameTitle,
+    eventSlug:eventData?.eventSlug
   });
  };
 
