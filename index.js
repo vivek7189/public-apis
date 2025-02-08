@@ -912,7 +912,8 @@ app.post('/schedule-meeting', async (req, res) => {
     attednePhone:phoneNumber || 'NA',
     meetingNotes:notes,
     eventNameTitle:userEventData?.title,
-    eventSlug:userEventData?.slug
+    eventSlug:userEventData?.slug,
+    meetingDuration:userEventData?.duration
   };
   console.log('userEventData?.slug',userEventData?.slug)
   await saveMeeting(meetingDataForG);
@@ -993,7 +994,8 @@ Subject: ${emailSubject}
       attednePhone:phoneNumber || 'NA',
       meetingNotes:notes,
       eventNameTitle:userEventData?.title,
-      eventSlug:userEventData?.slug
+      eventSlug:userEventData?.slug,
+      meetingDuration:userEventData?.duration
     };
     console.log('userEventData?.slug22',userEventData?.slug)
     await saveMeeting(meetingDataNonG);
@@ -1084,7 +1086,8 @@ const saveMeeting = async (eventData) => {
     attednePhone:eventData.attednePhone || 'NA',
     meetingNotes:eventData.meetingNotes,
     eventNameTitle:eventData?.eventNameTitle,
-    eventSlug:eventData?.eventSlug
+    eventSlug:eventData?.eventSlug,
+    meetingDuration:eventData?.meetingDuration
   });
  };
 
