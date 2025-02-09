@@ -1219,33 +1219,53 @@ function getMonthRange(dateString) {
   }
  });
 
-app.get('/meetflow/user', async (req, res) => {
+ app.get('/meetflow/user', async (req, res) => {
   try {
-    const { slug } = req.query; // username here is actually the full slug
+    const { slug, slugID } = req.query;
 
-    if (!slug) {
-      return res.status(400).json({
-        success: false,
-        error: 'Slug is required'
-      });
+    let userSnapshot;
+
+    if (slugID) {
+      // If slugID is provided, query by document ID
+      const eventDoc = await db.collection('meetflow_user_event')
+        .doc(slugID)
+        .get();
+
+      if (!eventDoc.exists) {
+        return res.status(404).json({
+          success: false,
+          error: 'Event not found'
+        });
+      }
+
+      userSnapshot = { docs: [eventDoc] };
+    } else {
+      // If no slugID, use original slug query
+      if (!slug) {
+        return res.status(400).json({
+          success: false,
+          error: 'Slug or slugID is required'
+        });
+      }
+
+      console.log('Querying with slug:', slug);
+      const cleanSlug = decodeURIComponent(slug).replace(/"/g, '');
+      console.log('Querying with clean slug:', cleanSlug);
+      
+      userSnapshot = await db.collection('meetflow_user_event')
+        .where('slug', '==', cleanSlug)
+        .limit(1)
+        .get();
+
+      if (userSnapshot.empty) {
+        return res.status(404).json({
+          success: false,
+          error: 'Event not found'
+        });
+      }
     }
-    console.log('Querying with slug:', slug);
 
-    // Direct query with the full slug
-    const cleanSlug = decodeURIComponent(slug).replace(/"/g, '');
-    console.log('Querying with clean slug:', cleanSlug);
-    const userSnapshot = await db.collection('meetflow_user_event')
-      .where('slug', '==', cleanSlug)
-      .limit(1)
-      .get();
-
-    if (userSnapshot.empty) {
-      return res.status(404).json({
-        success: false,
-        error: 'Event not found'
-      });
-    }
-
+    // Rest of the code remains the same
     const eventDoc = userSnapshot.docs[0];
     const eventData = eventDoc.data();
 
@@ -1269,7 +1289,6 @@ app.get('/meetflow/user', async (req, res) => {
         availability: availabilityData
       }
     });
-
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({
