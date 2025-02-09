@@ -905,7 +905,8 @@ app.post('/schedule-meeting', async (req, res) => {
       dateTime: meetingEndTime.format(),
       timeZone: timeZone
     },
-    hangoutLink: meetingLinkFinal,
+    meetingLink: meetingLinkFinal,
+    meetingType:userEventData?.location?.type,
     htmlLink: eventData.htmlLink,
     status: 'confirmed',
     attendees: [
@@ -973,10 +974,10 @@ Subject: ${emailSubject}
     if (!emailResponse.ok) {
       console.warn('Email sending failed, but meeting was created');
     }
-  }else{
-    const emailData={
-      email,name,meetingDateTime,timeZone,notes,hangoutLink:meetingLinkFinal
-    }
+  }else {
+      const emailData={
+        email,name,meetingDateTime,timeZone,notes,hangoutLink:meetingLinkFinal
+      }
     // send email from our domain
     emailService.sendMeetingInviteEmail(emailData)
     const meetingDataNonG = {
@@ -991,7 +992,8 @@ Subject: ${emailSubject}
         dateTime: meetingEndTime.format(),
         timeZone: timeZone
       },
-      hangoutLink: meetingLinkFinal,
+      meetingLink: meetingLinkFinal,
+      meetingType:userEventData?.location?.type,
       htmlLink: null,
       status: 'confirmed',
       attendees: [
@@ -1084,7 +1086,7 @@ const saveMeeting = async (eventData) => {
     description: eventData?.description || '',
     start: eventData?.start || { dateTime: new Date().toISOString() },
     end: eventData?.end || { dateTime: new Date().toISOString() },
-    hangoutLink: eventData?.hangoutLink || 'NA',
+    meetingLink: eventData?.meetingLink || 'NA',
     htmlLink: eventData?.htmlLink || null,
     status: eventData?.status || 'confirmed',
     attendees: Array.isArray(eventData?.attendees) ? eventData.attendees : [],
@@ -1098,7 +1100,8 @@ const saveMeeting = async (eventData) => {
     meetingNotes:eventData.meetingNotes,
     eventNameTitle:eventData?.eventNameTitle,
     eventSlug:eventData?.eventSlug,
-    meetingDuration:eventData?.meetingDuration
+    meetingDuration:eventData?.meetingDuration,
+    meetingType:eventData?.meetingType
   });
  };
 
