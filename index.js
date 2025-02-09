@@ -791,6 +791,7 @@ app.post('/schedule-meeting', async (req, res) => {
       notes="ada",
       timeZone="Asia/Calcutta",
       currentEmail="malik.vk07@gmail.com",
+      additionalEmails=[],
       phoneNumber = "+917042330092",
       eventID,
       isReschedule = false,
@@ -853,7 +854,10 @@ app.post('/schedule-meeting', async (req, res) => {
       dateTime: meetingEndTime.format(),   // ISO format with timezone
       timeZone: timeZone
     },
-    attendees: [{ email }],
+    attendees: [
+      { email },
+      ...additionalEmails.map(email => ({ email }))
+    ],
     conferenceData: {
       createRequest: {
         requestId: Date.now().toString(),
@@ -904,7 +908,10 @@ app.post('/schedule-meeting', async (req, res) => {
     hangoutLink: meetingLinkFinal,
     htmlLink: eventData.htmlLink,
     status: 'confirmed',
-    attendees: [{ email }],
+    attendees: [
+      { email },
+      ...additionalEmails.map(email => ({ email }))
+    ],
     creator: { email: currentEmail },
     organizer: { email: currentEmail },
     eventID,
@@ -924,6 +931,7 @@ app.post('/schedule-meeting', async (req, res) => {
 MIME-Version: 1.0
 From: ${currentEmail}
 To: ${email}
+Cc: ${additionalEmails.join(', ')}
 Subject: ${emailSubject}
 
 <html>
@@ -986,7 +994,10 @@ Subject: ${emailSubject}
       hangoutLink: meetingLinkFinal,
       htmlLink: null,
       status: 'confirmed',
-      attendees: [{ email }],
+      attendees: [
+        { email },
+        ...additionalEmails.map(email => ({ email }))
+      ],
       creator: { email: currentEmail },
       organizer: { email: currentEmail },
       eventID,
