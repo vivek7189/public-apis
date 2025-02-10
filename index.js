@@ -1,5 +1,6 @@
 const express = require('express');
 require('dotenv').config();
+const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
@@ -1088,36 +1089,39 @@ Subject: ${emailSubject}
     }
   }else {
     console.log('hello');
-    const query = await db.collection('meetflow_user_meetings')
-        .where('eventID', '==', eventID)
-        .where('organizer.email', '==', currentEmail)
-        .limit(1)
-        .get();
-    
-      if (query.empty) return res.status(404).json({ error: 'Meeting not found' });
-      
-      
-      const meetingDoc = query.docs[0];
-      const customeEventId = meetingDoc.data().id;
-      console.log('rescheduleData', rescheduleId);
+    const customeEventId = uuidv4();
+    const phoneNumber = phone || 'NA'; // Handle undefined phone
+
+    // Handle potential undefined values in userEventData
+    const sanitizedUserEventData = {
+      location: {
+        type: userEventData?.location?.type || 'custom'
+      },
+      title: userEventData?.title || 'Meeting',
+      slug: userEventData?.slug || 'custom-meeting',
+      duration: userEventData?.duration || 30,
+      hangoutLink: userEventData?.hangoutLink
+    };
+
     const emailData = {
       email,
       name,
       meetingDateTime,
       timeZone,
-      notes,
+      notes: notes || '',
       meetingLink: meetingLinkFinal,
-      meetingType: userEventData?.location?.type,
-      eventSlug: userEventData?.slug,
-      eventId: customeEventId,
-      eventTitle: userEventData?.title,
-      ...(rescheduleId && { rescheduleId }), // Only adds rescheduleId if it exists
-      ...(userEventData?.hangoutLink && { hangoutLink: userEventData.hangoutLink }) // Only adds hangoutLink if it exists
+      meetingType: sanitizedUserEventData.location.type,
+      eventSlug: sanitizedUserEventData.slug,
+      eventId: customeEventId, // Use the generated UUID
+      eventTitle: sanitizedUserEventData.title,
+      ...(rescheduleId && { rescheduleId }),
+      ...(sanitizedUserEventData.hangoutLink && { hangoutLink: sanitizedUserEventData.hangoutLink })
     };
-    
+
     await emailService.sendMeetingInviteEmail(emailData);
+
     const meetingDataNonG = {
-      id: Date.now().toString(),
+      id: customeEventId, // Use the same UUID for consistency
       summary: `Meeting with ${name}`,
       description: notes || '',
       start: {
@@ -1129,24 +1133,30 @@ Subject: ${emailSubject}
         timeZone: timeZone
       },
       meetingLink: meetingLinkFinal,
-      meetingType:userEventData?.location?.type,
+      meetingType: sanitizedUserEventData.location.type,
       htmlLink: null,
       status: 'confirmed',
       attendees: [
         { email },
-        ...additionalEmails.map(email => ({ email }))
+        ...(Array.isArray(additionalEmails) ? additionalEmails.map(email => ({ email })) : [])
       ],
       creator: { email: currentEmail },
       organizer: { email: currentEmail },
-      eventID,
-      attendeName:name,
-      attednePhone:phoneNumber || 'NA',
-      meetingNotes:notes,
-      eventNameTitle:userEventData?.title,
-      eventSlug:userEventData?.slug,
-      meetingDuration:userEventData?.duration
+      eventID: eventID || uuidv4(), // Fallback to new UUID if eventID is undefined
+      attendeName: name,
+      attednePhone: phoneNumber,
+      meetingNotes: notes || '',
+      eventNameTitle: sanitizedUserEventData.title,
+      eventSlug: sanitizedUserEventData.slug,
+      meetingDuration: sanitizedUserEventData.duration
     };
-    console.log('userEventData?.slug22',userEventData?.slug)
+
+    // console.log('Meeting Data:', {
+    //   eventSlug: sanitizedUserEventData.slug,
+    //   customEventId: customeEventId,
+    //   meetingType: sanitizedUserEventData.location.type
+    // });
+
     await saveMeeting(meetingDataNonG);
   }
    
