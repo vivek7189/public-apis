@@ -828,6 +828,7 @@ app.post('/schedule-meeting', async (req, res) => {
       phoneNumber = "+917042330092",
       eventID,
       rescheduleId,
+      meetingDuration='60'
     } = req.body;
     const userSnapshot = await db.collection('meetflow_user_data')
     .where('email', '==', currentEmail)
@@ -863,7 +864,8 @@ app.post('/schedule-meeting', async (req, res) => {
   // Combine date and time and convert to specified timezone
   const dateTimeString = `${selectedDate} ${timeString}`;
   const meetingDateTime = moment.tz(dateTimeString, 'YYYY-MM-DD HH:mm', timeZone);
-  const meetingEndTime = meetingDateTime.clone().add(1, 'hour');
+  //const meetingEndTime = meetingDateTime.clone().add(1, 'hour');
+  const meetingEndTime = meetingDateTime.clone().add(meetingDuration || 60, 'minutes');
 
 
   let meetingLinkFinal = userEventData?.location?.meetingLink || 'NA';
