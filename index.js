@@ -794,7 +794,7 @@ app.post('/schedule-meeting', async (req, res) => {
       additionalEmails=[],
       phoneNumber = "+917042330092",
       eventID,
-      isReschedule = false,
+      rescheduleData,
     } = req.body;
     const userSnapshot = await db.collection('meetflow_user_data')
     .where('email', '==', currentEmail)
@@ -838,10 +838,21 @@ app.post('/schedule-meeting', async (req, res) => {
     const { accessToken } = await tokenService.getValidToken(userData);
 
     // If it's a reschedule, cancel the previous event first
-    if (isReschedule && userEventData.googleCalendarEventId) {
+
+    if (rescheduleData ) {
+      const query = await db.collection('meetflow_user_meetings')
+      .where('id', '==', rescheduleData.rescheduleId)
+      .where('organizer.email', '==', rescheduleData.email)
+      .limit(1)
+      .get();
+  
+    if (query.empty) return res.status(404).json({ error: 'Meeting not found' });
+  console.log('rescheduleData',rescheduleData)
+    const meetingDoc = query.docs[0];
+    const googleEventId = meetingDoc.data().id;
       try {
         await fetch(
-          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${userEventData.googleCalendarEventId}`,
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`,
           {
             method: 'DELETE',
             headers: {
@@ -933,7 +944,7 @@ app.post('/schedule-meeting', async (req, res) => {
     await saveMeeting(meetingData);
 
     // Prepare email content based on whether it's a reschedule or new meeting
-    const emailSubject = isReschedule ? 'Meeting Rescheduled' : 'Meeting Confirmation';
+    const emailSubject = rescheduleData ? 'Meeting Rescheduled' : 'Meeting Confirmation';
     const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
 From: ${currentEmail}
@@ -945,7 +956,7 @@ Subject: ${emailSubject}
 <body>
   <h2>${emailSubject}</h2>
   <p>Hello ${name},</p>
-  ${isReschedule 
+  ${rescheduleData 
     ? `<p>Your meeting has been rescheduled to the following time:</p>`
     : `<p>Your meeting has been scheduled successfully.</p>`
   }
@@ -954,7 +965,7 @@ Subject: ${emailSubject}
   <p><strong>Time Zone:</strong> ${timeZone}</p>
   <p><strong>Meeting Link:</strong> ${meetingLinkFinal || '--'}</p>
   <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
-  ${isReschedule 
+  ${rescheduleData 
     ? `<p>The previous meeting has been canceled and a new calendar invitation will be sent shortly.</p>`
     : `<p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>`
   }
@@ -1081,10 +1092,10 @@ Subject: ${emailSubject}
     });
 
   } catch (error) {
-    console.error(isReschedule ? 'Reschedule Error:' : 'Scheduling Error:', error);
+    console.error(rescheduleData ? 'Reschedule Error:' : 'Scheduling Error:', error);
     res.status(500).json({
       success: false,
-      error: error.message || `Failed to ${isReschedule ? 'reschedule' : 'schedule'} meeting`
+      error: error.message || `Failed to ${rescheduleData ? 'reschedule' : 'schedule'} meeting`
     });
   }
 });
