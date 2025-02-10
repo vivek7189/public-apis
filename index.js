@@ -821,12 +821,12 @@ app.post('/schedule-meeting', async (req, res) => {
       selectedDate="2025-01-23",
       selectedTime="3:45 PM",
       name="NA",
-      email="vivekkumar7189@gmail.com",
-      notes="ada",
+      email="",
+      notes="",
       timeZone="Asia/Calcutta",
-      currentEmail="malik.vk07@gmail.com",
+      currentEmail="admin@meetsynk.com",
       additionalEmails=[],
-      phoneNumber = "+917042330092",
+      phoneNumber = "",
       eventID,
       rescheduleId,
       meetingDuration='60'
@@ -1088,12 +1088,12 @@ Subject: ${emailSubject}
       console.warn('Email sending failed, but meeting was created');
     }
   }else {
-    console.log('hello1');
+    //console.log('hello1');
     function generateCustomId() {
       return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
     const customeEventId = generateCustomId()
-    const phoneNumber = phone || 'NA'; // Handle undefined phone
+    const phone = phoneNumber || 'NA'; // Handle undefined phone
 
     // Handle potential undefined values in userEventData
     const sanitizedUserEventData = {
@@ -1147,18 +1147,13 @@ Subject: ${emailSubject}
       organizer: { email: currentEmail },
       eventID: eventID, // Fallback to new UUID if eventID is undefined
       attendeName: name,
-      attednePhone: phoneNumber,
+      attednePhone: phone,
       meetingNotes: notes || '',
       eventNameTitle: sanitizedUserEventData.title,
       eventSlug: sanitizedUserEventData.slug,
       meetingDuration: sanitizedUserEventData.duration
     };
 
-    // console.log('Meeting Data:', {
-    //   eventSlug: sanitizedUserEventData.slug,
-    //   customEventId: customeEventId,
-    //   meetingType: sanitizedUserEventData.location.type
-    // });
 
     await saveMeeting(meetingDataNonG);
   }
