@@ -1088,7 +1088,7 @@ Subject: ${emailSubject}
       console.warn('Email sending failed, but meeting was created');
     }
   }else {
-    console.log('hello');
+    console.log('hello1');
     const customeEventId = uuidv4();
     const phoneNumber = phone || 'NA'; // Handle undefined phone
 
