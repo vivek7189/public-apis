@@ -20,11 +20,11 @@ class EmailService {
     this.getMeetingIcon = (meetingType) => {
       switch(meetingType?.toLowerCase()) {
         case 'google meet':
-          return '🎥';
+          return 'Google Meet';
         case 'zoom':
-          return '📹';
+          return 'Zoom Call';
         case 'teams':
-          return '👥';
+          return 'MS Teams';
         default:
           return '🔗';
       }

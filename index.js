@@ -775,34 +775,69 @@ app.post('/meetingflow/cancelevent', async (req, res) => {
 
       if (!googleResponse.ok) throw new Error('Failed to cancel Google Calendar event');
     } else {
-      // Send cancellation emails for other meeting types
-      const formattedDate = new Date(startTime).toLocaleString('en-US', {
+      // Format the meeting time
+      const startDateTime = new Date(meetingData.start.dateTime);
+      const formattedDate = startDateTime.toLocaleString('en-US', {
         dateStyle: 'full',
-        timeStyle: 'short'
+        timeStyle: 'short',
+        timeZone: meetingData.start.timeZone
       });
 
+      // Create list of all email recipients
+      const allRecipients = [
+        ...(meetingData.attendees || []).map(a => a.email),
+        meetingData.creator.email,
+        meetingData.organizer.email
+      ];
+      
+      // Remove duplicates and filter out empty/invalid emails
+      const uniqueRecipients = [...new Set(allRecipients)].filter(email => 
+        email && typeof email === 'string' && email.includes('@')
+      );
+
+      // Prepare email content
       const emailContent = {
-        subject: `Meeting Cancelled: ${title}`,
+        subject: `Meeting Cancelled: ${meetingData.summary || meetingData.eventNameTitle}`,
+        text: `
+          Hello,
+          
+          The following meeting has been cancelled:
+          
+          Title: ${meetingData.summary || meetingData.eventNameTitle}
+          Originally Scheduled for: ${formattedDate}
+          Duration: ${meetingData.meetingDuration} minutes
+          Organizer: ${meetingData.organizer.email}
+          ${meetingData.meetingLink ? `Meeting Link: ${meetingData.meetingLink}` : ''}
+          
+          If you have any questions, please contact the meeting organizer.
+          
+          Best regards,
+          ${meetingData.organizer.email}
+        `,
         html: `
           <p>Hello,</p>
           <p>The following meeting has been cancelled:</p>
-          <p><strong>Title:</strong> ${title}</p>
+          <p><strong>Title:</strong> ${meetingData.summary || meetingData.eventNameTitle}</p>
           <p><strong>Originally Scheduled for:</strong> ${formattedDate}</p>
-          <p><strong>Organizer:</strong> ${organizer.name}</p>
+          <p><strong>Duration:</strong> ${meetingData.meetingDuration} minutes</p>
+          <p><strong>Organizer:</strong> ${meetingData.organizer.email}</p>
+          ${meetingData.meetingLink ? `<p><strong>Meeting Link:</strong> ${meetingData.meetingLink}</p>` : ''}
           <p>If you have any questions, please contact the meeting organizer.</p>
-          <p>Best regards,<br>${organizer.name}</p>
+          <p>Best regards,<br>${meetingData.organizer.email}</p>
         `
       };
 
-      // Send cancellation email to all attendees
-      const emailPromises = attendees.map(attendee => 
-        emailService.sendEmail({
-          to: attendee.email,
+      // Send single email to all recipients
+      try {
+        console.log('Sending cancellation email to:', uniqueRecipients.join(', '));
+        await emailService.sendEmail({
+          to: uniqueRecipients.join(','),
           ...emailContent
-        })
-      );
-
-      await Promise.all(emailPromises);
+        });
+      } catch (error) {
+        console.error('Error sending cancellation email:', error);
+        throw new Error('Failed to send cancellation email');
+      }
     }
 
     // Delete from Firestore
@@ -813,6 +848,7 @@ app.post('/meetingflow/cancelevent', async (req, res) => {
     console.error('Cancel meeting error:', error);
     res.status(500).json({ error: error.message });
   }
+
 });
 
 app.post('/schedule-meeting', async (req, res) => {
