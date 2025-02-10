@@ -1089,7 +1089,10 @@ Subject: ${emailSubject}
     }
   }else {
     console.log('hello1');
-    const customeEventId = new Date().now();//uuidv4();
+    function generateCustomId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+    const customeEventId = generateCustomId()
     const phoneNumber = phone || 'NA'; // Handle undefined phone
 
     // Handle potential undefined values in userEventData
