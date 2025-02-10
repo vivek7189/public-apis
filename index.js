@@ -966,23 +966,65 @@ Cc: ${additionalEmails.join(', ')}
 Subject: ${emailSubject}
 
 <html>
-<body>
-  <h2>${emailSubject}</h2>
+<head>
+  <style>
+    .button {
+      display: inline-block;
+      padding: 10px 20px;
+      margin: 10px 10px 10px 0;
+      border-radius: 5px;
+      text-decoration: none;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .reschedule-btn {
+      background-color: #4F46E5;
+      color: white !important;
+    }
+    .cancel-btn {
+      background-color: #DC2626;
+      color: white !important;
+    }
+  </style>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <h2 style="color: #1F2937;">${emailSubject}</h2>
   <p>Hello ${name},</p>
   ${rescheduleId
     ? `<p>Your meeting has been rescheduled to the following time:</p>`
     : `<p>Your meeting has been scheduled successfully.</p>`
   }
-  <p><strong>Date:</strong> ${meetingDateTime.format('LL')}</p>
-  <p><strong>Time:</strong> ${meetingDateTime.format('LT')} ${timeZone}</p>
-  <p><strong>Time Zone:</strong> ${timeZone}</p>
-  <p><strong>Meeting Link:</strong> ${meetingLinkFinal || '--'}</p>
-  <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+  <div style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+    <p style="margin: 5px 0;"><strong>Date:</strong> ${meetingDateTime.format('LL')}</p>
+    <p style="margin: 5px 0;"><strong>Time:</strong> ${meetingDateTime.format('LT')} ${timeZone}</p>
+    <p style="margin: 5px 0;"><strong>Time Zone:</strong> ${timeZone}</p>
+    <p style="margin: 5px 0;"><strong>Meeting Link:</strong> <a href="${meetingLinkFinal || '#'}" style="color: #4F46E5;">${meetingLinkFinal || '--'}</a></p>
+    <p style="margin: 5px 0;"><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+  </div>
+  
+  <div style="margin: 25px 0;">
+    <a href="https://www.meetsynk.com/${userEventData?.slug}?rescheduleId=${eventData.id}" 
+       class="button reschedule-btn" 
+       style="background-color: #4F46E5; color: white; text-decoration: none;">
+      Reschedule Meeting
+    </a>
+    <a href="https://www.meetsynk.com/${userEventData?.slug}?rescheduleId=${eventData.id}" 
+       class="button cancel-btn" 
+       style="background-color: #DC2626; color: white; text-decoration: none;">
+      Cancel Meeting
+    </a>
+  </div>
+
   ${rescheduleId
     ? `<p>The previous meeting has been canceled and a new calendar invitation will be sent shortly.</p>`
     : `<p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>`
   }
-  <p>Best regards,<br>Your Meeting Scheduler</p>
+  
+  <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
+    Best regards,<br>
+    Your Meeting Scheduler
+  </p>
 </body>
 </html>`.replace(/\n/g, '\r\n');
 
@@ -1010,11 +1052,22 @@ Subject: ${emailSubject}
       console.warn('Email sending failed, but meeting was created');
     }
   }else {
-      const emailData={
-        email,name,meetingDateTime,timeZone,notes,hangoutLink:meetingLinkFinal
-      }
-    // send email from our domain
-    emailService.sendMeetingInviteEmail(emailData)
+    const emailData = {
+      email,
+      name,
+      meetingDateTime,
+      timeZone,
+      notes,
+      meetingLink: meetingLinkFinal,
+      meetingType: userEventData?.location?.type,
+      eventSlug: userEventData?.slug,
+      eventId: eventData?.id,
+      eventTitle: userEventData?.title,
+      rescheduleId,  // Add this for rescheduled meetings
+      hangoutLink: eventData?.hangoutLink // For Google Meet links
+    };
+    
+    await emailService.sendMeetingInviteEmail(emailData);
     const meetingDataNonG = {
       id: Date.now().toString(),
       summary: `Meeting with ${name}`,
