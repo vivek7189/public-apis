@@ -746,30 +746,63 @@ app.post('/meetingflow/cancelevent', async (req, res) => {
     if (query.empty) return res.status(404).json({ error: 'Meeting not found' });
 
     const meetingDoc = query.docs[0];
-    const googleEventId = meetingDoc.data().id;
+    const meetingData = meetingDoc.data();
+    const { meetingType, attendees, title, startTime, organizer } = meetingData;
 
+    // Get user data
     const userSnapshot = await db.collection('meetflow_user_data')
-    .where('email', '==', email)
-    .limit(1)
-    .get();
-    
-  if (userSnapshot.empty) {
-    throw new Error('User not found');
-  }
+      .where('email', '==', email)
+      .limit(1)
+      .get();
 
-  const userData = userSnapshot.docs[0].data();
+    if (userSnapshot.empty) {
+      throw new Error('User not found');
+    }
 
-    // Cancel Google Calendar event
-    const { accessToken } = await tokenService.getValidToken(userData);
-    const googleResponse = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}?sendUpdates=all`,
-      {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      }
-    );
+    const userData = userSnapshot.docs[0].data();
 
-    if (!googleResponse.ok) throw new Error('Failed to cancel Google Calendar event');
+    // Handle Google Meet cancellation
+    if (meetingType === 'google_meet') {
+      const { accessToken } = await tokenService.getValidToken(userData);
+      const googleResponse = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events/${meetingData.id}?sendUpdates=all`,
+        {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        }
+      );
+
+      if (!googleResponse.ok) throw new Error('Failed to cancel Google Calendar event');
+    } else {
+      // Send cancellation emails for other meeting types
+      const formattedDate = new Date(startTime).toLocaleString('en-US', {
+        dateStyle: 'full',
+        timeStyle: 'short'
+      });
+
+      const emailContent = {
+        subject: `Meeting Cancelled: ${title}`,
+        html: `
+          <p>Hello,</p>
+          <p>The following meeting has been cancelled:</p>
+          <p><strong>Title:</strong> ${title}</p>
+          <p><strong>Originally Scheduled for:</strong> ${formattedDate}</p>
+          <p><strong>Organizer:</strong> ${organizer.name}</p>
+          <p>If you have any questions, please contact the meeting organizer.</p>
+          <p>Best regards,<br>${organizer.name}</p>
+        `
+      };
+
+      // Send cancellation email to all attendees
+      const emailPromises = attendees.map(attendee => 
+        emailService.sendEmail({
+          to: attendee.email,
+          ...emailContent
+        })
+      );
+
+      await Promise.all(emailPromises);
+    }
 
     // Delete from Firestore
     await meetingDoc.ref.delete();
