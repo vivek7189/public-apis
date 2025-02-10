@@ -1063,8 +1063,8 @@ Subject: ${emailSubject}
       eventSlug: userEventData?.slug,
       eventId: eventData?.id,
       eventTitle: userEventData?.title,
-      rescheduleId,  // Add this for rescheduled meetings
-      hangoutLink: eventData?.hangoutLink // For Google Meet links
+      ...(rescheduleId && { rescheduleId }), // Only adds rescheduleId if it exists
+      ...(eventData?.hangoutLink && { hangoutLink: eventData.hangoutLink }) // Only adds hangoutLink if it exists
     };
     
     await emailService.sendMeetingInviteEmail(emailData);
