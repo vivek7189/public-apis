@@ -832,102 +832,108 @@ app.post('/schedule-meeting', async (req, res) => {
   const meetingDateTime = moment.tz(dateTimeString, 'YYYY-MM-DD HH:mm', timeZone);
   const meetingEndTime = meetingDateTime.clone().add(1, 'hour');
 
-  // console.log('Parsed times:', {
-  //   originalInput: `${selectedDate} ${selectedTime}`,
-  //   parsedStartTime: meetingDateTime.format(),
-  //   parsedEndTime: meetingEndTime.format(),
-  //   timeZone: timeZone
-  // });
-  let meetingLinkFinal=userEventData?.location?.meetingLink || 'NA'
-  if(userEventData?.location?.type === 'google-meet'){
 
+  let meetingLinkFinal = userEventData?.location?.meetingLink || 'NA';
+  if(userEventData?.location?.type === 'google-meet') {
+    const { accessToken } = await tokenService.getValidToken(userData);
 
-  // Create event details using the timezone-aware times
-  const eventDetails = {
-    summary: `Meeting with ${name}`,
-    description: notes || 'No additional notes',
-    start: {
-      dateTime: meetingDateTime.format(),  // ISO format with timezone
-      timeZone: timeZone
-    },
-    end: {
-      dateTime: meetingEndTime.format(),   // ISO format with timezone
-      timeZone: timeZone
-    },
-    attendees: [
-      { email },
-      ...additionalEmails.map(email => ({ email }))
-    ],
-    conferenceData: {
-      createRequest: {
-        requestId: Date.now().toString(),
-        conferenceSolutionKey: { type: 'hangoutsMeet' }
+    // If it's a reschedule, cancel the previous event first
+    if (isReschedule && userEventData.googleCalendarEventId) {
+      try {
+        await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${userEventData.googleCalendarEventId}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Error canceling previous event:', error);
       }
-    },
-    sendUpdates: 'all'
-  };
-
-  //console.log('Event details:', JSON.stringify(eventDetails, null, 2));
-
-  const { accessToken } = await tokenService.getValidToken(userData);
-
-  // Create calendar event
-  const calendarResponse = await fetch(
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(eventDetails)
     }
-  );
-  
-  if (!calendarResponse.ok) {
-    const errorData = await calendarResponse.json();
-    //console.error('Calendar API error:', errorData);
-    throw new Error(errorData.error?.message || 'Failed to create calendar event');
-  }
 
-  const eventData = await calendarResponse.json();
-  meetingLinkFinal = eventData?.hangoutLink
+    const eventDetails = {
+      summary: `Meeting with ${name}`,
+      description: notes || 'No additional notes',
+      start: {
+        dateTime: meetingDateTime.format(),
+        timeZone: timeZone
+      },
+      end: {
+        dateTime: meetingEndTime.format(),
+        timeZone: timeZone
+      },
+      attendees: [
+        { email },
+        ...additionalEmails.map(email => ({ email }))
+      ],
+      conferenceData: {
+        createRequest: {
+          requestId: Date.now().toString(),
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
+        }
+      },
+      sendUpdates: 'all'
+    };
 
-  const meetingDataForG = {
-    id: eventData.id,
-    summary: `Meeting with ${name}`,
-    description: notes || '',
-    start: {
-      dateTime: meetingDateTime.format(),
-      timeZone: timeZone
-    },
-    end: {
-      dateTime: meetingEndTime.format(),
-      timeZone: timeZone
-    },
-    meetingLink: meetingLinkFinal,
-    meetingType:userEventData?.location?.type,
-    htmlLink: eventData.htmlLink,
-    status: 'confirmed',
-    attendees: [
-      { email },
-      ...additionalEmails.map(email => ({ email }))
-    ],
-    creator: { email: currentEmail },
-    organizer: { email: currentEmail },
-    eventID,
-    attendeName:name,
-    attednePhone:phoneNumber || 'NA',
-    meetingNotes:notes,
-    eventNameTitle:userEventData?.title,
-    eventSlug:userEventData?.slug,
-    meetingDuration:userEventData?.duration
-  };
-  console.log('userEventData?.slug',userEventData?.slug)
-  await saveMeeting(meetingDataForG);
-   // Create gmail email content
-   const emailSubject = isReschedule ? 'Meeting Rescheduled' : 'Meeting Confirmation';
-    const emailGreeting = isReschedule ? 'Your meeting has been rescheduled successfully.' : 'Your meeting has been scheduled successfully.';
+    const calendarResponse = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(eventDetails)
+      }
+    );
+    
+    if (!calendarResponse.ok) {
+      const errorData = await calendarResponse.json();
+      throw new Error(errorData.error?.message || 'Failed to create calendar event');
+    }
+
+    const eventData = await calendarResponse.json();
+    meetingLinkFinal = eventData?.hangoutLink;
+
+    const meetingData = {
+      id: eventData.id,
+      googleCalendarEventId: eventData.id, // Store this for future rescheduling
+      summary: `Meeting with ${name}`,
+      description: notes || '',
+      start: {
+        dateTime: meetingDateTime.format(),
+        timeZone: timeZone
+      },
+      end: {
+        dateTime: meetingEndTime.format(),
+        timeZone: timeZone
+      },
+      meetingLink: meetingLinkFinal,
+      meetingType: userEventData?.location?.type,
+      htmlLink: eventData.htmlLink,
+      status: 'confirmed',
+      attendees: [
+        { email },
+        ...additionalEmails.map(email => ({ email }))
+      ],
+      creator: { email: currentEmail },
+      organizer: { email: currentEmail },
+      eventID,
+      attendeName: name,
+      attednePhone: phoneNumber || 'NA',
+      meetingNotes: notes,
+      eventNameTitle: userEventData?.title,
+      eventSlug: userEventData?.slug,
+      meetingDuration: userEventData?.duration
+    };
+
+    await saveMeeting(meetingData);
+
+    // Prepare email content based on whether it's a reschedule or new meeting
+    const emailSubject = isReschedule ? 'Meeting Rescheduled' : 'Meeting Confirmation';
     const emailContent = `Content-Type: text/html; charset=utf-8
 MIME-Version: 1.0
 From: ${currentEmail}
@@ -936,21 +942,26 @@ Cc: ${additionalEmails.join(', ')}
 Subject: ${emailSubject}
 
 <html>
-  <body>
-    <h2>${emailSubject}</h2>
-    <p>Hello ${name},</p>
-    <p>${emailGreeting}</p>
-    <p><strong>Date:</strong> ${meetingDateTime.format('LL')}</p>
-    <p><strong>Time:</strong> ${meetingDateTime.format('LT')} ${timeZone}</p>
-    <p><strong>Time Zone:</strong> ${timeZone}</p>
-    <p><strong>Meeting Link:</strong> ${eventData?.hangoutLink || '--'}</p>
-    <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
-    <p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>
-    <p>Best regards,<br>Your Meeting Scheduler</p>
-  </body>
+<body>
+  <h2>${emailSubject}</h2>
+  <p>Hello ${name},</p>
+  ${isReschedule 
+    ? `<p>Your meeting has been rescheduled to the following time:</p>`
+    : `<p>Your meeting has been scheduled successfully.</p>`
+  }
+  <p><strong>Date:</strong> ${meetingDateTime.format('LL')}</p>
+  <p><strong>Time:</strong> ${meetingDateTime.format('LT')} ${timeZone}</p>
+  <p><strong>Time Zone:</strong> ${timeZone}</p>
+  <p><strong>Meeting Link:</strong> ${meetingLinkFinal || '--'}</p>
+  <p><strong>Notes:</strong> ${notes || 'No additional notes'}</p>
+  ${isReschedule 
+    ? `<p>The previous meeting has been canceled and a new calendar invitation will be sent shortly.</p>`
+    : `<p>The meeting has been added to your calendar. You will receive a calendar invitation separately.</p>`
+  }
+  <p>Best regards,<br>Your Meeting Scheduler</p>
+</body>
 </html>`.replace(/\n/g, '\r\n');
 
-    // Send email
     const encodedEmail = Buffer.from(emailContent)
       .toString('base64')
       .replace(/\+/g, '-')
