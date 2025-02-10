@@ -841,18 +841,21 @@ app.post('/schedule-meeting', async (req, res) => {
 
     if (rescheduleId) {
       const query = await db.collection('meetflow_user_meetings')
-      .where('id', '==', rescheduleId)
-      .where('organizer.email', '==', currentEmail)
-      .limit(1)
-      .get();
-  
-    if (query.empty) return res.status(404).json({ error: 'Meeting not found' });
-    console.log('rescheduleData',rescheduleId)
-    const meetingDoc = query.docs[0];
-    const googleEventId = meetingDoc.data().id;
+        .where('id', '==', rescheduleId)
+        .where('organizer.email', '==', currentEmail)
+        .limit(1)
+        .get();
+    
+      if (query.empty) return res.status(404).json({ error: 'Meeting not found' });
+      
+      console.log('rescheduleData', rescheduleId);
+      const meetingDoc = query.docs[0];
+      const googleEventId = meetingDoc.data().id;
+    
       try {
-        await fetch(
-          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`,
+        // Try to delete from Google Calendar first
+        const calendarResponse = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}?sendUpdates=all`,
           {
             method: 'DELETE',
             headers: {
@@ -860,8 +863,18 @@ app.post('/schedule-meeting', async (req, res) => {
             }
           }
         );
+    
+        if (!calendarResponse.ok) {
+          throw new Error('Failed to delete event from Google Calendar');
+        }
+    
+        // If calendar deletion was successful, delete from database
+        await db.collection('meetflow_user_meetings').doc(meetingDoc.id).delete();
+        console.log('Successfully deleted meeting from calendar and database');
+    
       } catch (error) {
-        console.error('Error canceling previous event:', error);
+        console.error('Error in meeting cancellation:', error);
+        throw new Error('Failed to cancel meeting: ' + error.message);
       }
     }
 
