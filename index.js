@@ -1052,6 +1052,19 @@ Subject: ${emailSubject}
       console.warn('Email sending failed, but meeting was created');
     }
   }else {
+    console.log('hello');
+    const query = await db.collection('meetflow_user_meetings')
+        .where('eventID', '==', eventID)
+        .where('organizer.email', '==', currentEmail)
+        .limit(1)
+        .get();
+    
+      if (query.empty) return res.status(404).json({ error: 'Meeting not found' });
+      
+      
+      const meetingDoc = query.docs[0];
+      const customeEventId = meetingDoc.data().id;
+      console.log('rescheduleData', rescheduleId);
     const emailData = {
       email,
       name,
@@ -1061,10 +1074,10 @@ Subject: ${emailSubject}
       meetingLink: meetingLinkFinal,
       meetingType: userEventData?.location?.type,
       eventSlug: userEventData?.slug,
-      eventId: eventData?.id,
+      eventId: customeEventId,
       eventTitle: userEventData?.title,
       ...(rescheduleId && { rescheduleId }), // Only adds rescheduleId if it exists
-      ...(eventData?.hangoutLink && { hangoutLink: eventData.hangoutLink }) // Only adds hangoutLink if it exists
+      ...(userEventData?.hangoutLink && { hangoutLink: userEventData.hangoutLink }) // Only adds hangoutLink if it exists
     };
     
     await emailService.sendMeetingInviteEmail(emailData);
@@ -1158,10 +1171,11 @@ Subject: ${emailSubject}
     });
 
   } catch (error) {
-    console.error(rescheduleId ? 'Reschedule Error:' : 'Scheduling Error:', error);
+    const isReschedule = typeof rescheduleId !== 'undefined' && rescheduleId !== null;
+    console.error(isReschedule ? 'Reschedule Error:' : 'Scheduling Error:', error);
     res.status(500).json({
       success: false,
-      error: error.message || `Failed to ${rescheduleId ? 'reschedule' : 'schedule'} meeting`
+      error: error.message || `Failed to ${isReschedule ? 'reschedule' : 'schedule'} meeting`
     });
   }
 });

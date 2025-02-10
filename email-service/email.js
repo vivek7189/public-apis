@@ -280,6 +280,7 @@ The MeetSynk Team`,
   }
 
   async sendMeetingInviteEmail(meetingData) {
+    console.log('meetingData',meetingData);
     if (!meetingData.email || !meetingData.name || !meetingData.meetingDateTime || !meetingData.timeZone) {
       throw new Error('Required meeting data is missing');
     }
