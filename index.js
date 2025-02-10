@@ -1,6 +1,6 @@
 const express = require('express');
 require('dotenv').config();
-const { v4: uuidv4 } = require('uuid');
+//const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
@@ -1089,7 +1089,7 @@ Subject: ${emailSubject}
     }
   }else {
     console.log('hello1');
-    const customeEventId = uuidv4();
+    const customeEventId = new Date().now();//uuidv4();
     const phoneNumber = phone || 'NA'; // Handle undefined phone
 
     // Handle potential undefined values in userEventData
@@ -1142,7 +1142,7 @@ Subject: ${emailSubject}
       ],
       creator: { email: currentEmail },
       organizer: { email: currentEmail },
-      eventID: eventID || uuidv4(), // Fallback to new UUID if eventID is undefined
+      eventID: eventID, // Fallback to new UUID if eventID is undefined
       attendeName: name,
       attednePhone: phoneNumber,
       meetingNotes: notes || '',
