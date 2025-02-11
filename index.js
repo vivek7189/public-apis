@@ -5,7 +5,7 @@ const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-//const { google } = require('googleapis');
+const { google } = require('googleapis');
 const TokenService = require('./token/token');
 const TokenManager = require('./token/token_manager');
 const cors = require('cors');
@@ -688,6 +688,81 @@ app.post('/meetflow/user', async (req, res) => {
   }
 });
 
+
+// Add this to your index.js where other endpoints are defined
+
+app.post('/meetflow/auth/google', async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    // Initialize OAuth2 client
+    const oauth2Client = new google.auth.OAuth2(
+      '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
+      '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',
+      'https//:www.meetsynk.com/apps'
+    );
+
+    // Exchange code for tokens
+    const { tokens } = await oauth2Client.getToken(code);
+
+    // Get user info
+    oauth2Client.setCredentials(tokens);
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const userInfoResponse = await oauth2.userinfo.get();
+    const userInfo = userInfoResponse.data;
+    console.log('userInfo',userInfo)
+    // Current timestamp and formatted datetime
+    const currentTime = Date.now();
+    const date = new Date(currentTime);
+    const lastTokenRefreshDateTime = 
+      `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
+      `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+    // Prepare data for user API
+    const userData = {
+      email: userInfo.email,
+      name: userInfo.name,
+      picture: userInfo.picture,
+      provider: 'google',
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      tokenType: tokens.token_type,
+      tokenExpiryDate: currentTime + (tokens.expires_in * 1000),
+      tokenCreatedAt: currentTime,
+      lastTokenRefresh: currentTime,
+      lastTokenRefreshDateTime: lastTokenRefreshDateTime,
+      calanderConnected: true,
+      gmailConnected: true
+    };
+
+    // Forward to your existing user API endpoint
+    const userApiResponse = await fetch(`https://public-apis-1087929121342.us-central1.run.app/meetflow/user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(userData)
+    });
+
+    const userApiData = await userApiResponse.json();
+    console.log('userApiData',userApiData)
+    // Handle response
+    if (!userApiResponse.ok) {
+      throw new Error(userApiData.error || 'Failed to process user data');
+    }
+
+    // Return success response matching your API format
+    return res.status(userApiResponse.status).json(userApiData);
+
+  } catch (error) {
+    console.error('Google auth error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to process Google authentication',
+      details: error.message
+    });
+  }
+});
 // Helper function to generate unique calendar URL
 const generateCalendarUrl = (name) => {
   const cleanName = name.toLowerCase()
