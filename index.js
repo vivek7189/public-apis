@@ -987,158 +987,166 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
     const { provider } = req.params;
     const { code } = req.body;
 
+    console.log('Received auth request:', { provider, code });
+
     if (!code) {
       return res.status(400).json({
         success: false,
         error: 'Authorization code is required'
       });
     }
-
-    let userInfo, tokens;
-
-    switch (provider) {
-      case 'google':
+    console.log('provider',provider);
+    if (provider === 'google') {
+      try {
+        // Initialize OAuth2 client with exact matching parameters
         const oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET,
-          process.env.GOOGLE_REDIRECT_URI
+          '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
+          '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',
+          `https://www.meetsynk.com/login`
         );
 
-        const { tokens: googleTokens } = await oauth2Client.getToken({
-          code,
-          redirect_uri: process.env.GOOGLE_REDIRECT_URI
+        // Log the parameters being used
+        console.log('OAuth2 parameters:', {
+          redirectUri: `https://www.meetsynk.com/login`,
+          code: code
         });
-        tokens = googleTokens;
 
+        // Exchange code for tokens
+        const { tokens } = await oauth2Client.getToken({
+          code: code,
+          redirect_uri: `https://www.meetsynk.com/login`,
+          scope: GOOGLE_SCOPES.join(' ')
+        });
+
+        console.log('Received tokens:', {
+          hasAccessToken: !!tokens.access_token,
+          hasRefreshToken: !!tokens.refresh_token,
+          expiryDate: tokens.expiry_date
+        });
+
+        // Set credentials and get user info
         oauth2Client.setCredentials(tokens);
         const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
         const userInfoResponse = await oauth2.userinfo.get();
-        userInfo = userInfoResponse.data;
-        break;
+        const userInfo = userInfoResponse.data;
 
-      default:
+        // Current timestamp and formatted datetime
+        const currentTime = Date.now();
+        const date = new Date(currentTime);
+        const lastTokenRefreshDateTime = 
+          `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
+          `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+        // Create user data object
+        const googleLogin = {
+          name: userInfo.name,
+          picture: userInfo.picture || '',
+          calanderConnected: true,
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          tokenType: tokens.token_type || 'Bearer',
+          tokenExpiryDate: currentTime + (tokens.expires_in * 1000),
+          lastLoginAt: new Date().toISOString(),
+          lastTokenRefresh: currentTime,
+          lastTokenRefreshDateTime,
+          refreshTokenCreatedAt: currentTime,
+          refreshTokenExpiryDate: currentTime + (30 * 24 * 60 * 60 * 1000)
+        };
+
+        const usersRef = db.collection('meetflow_user_data');
+        
+        // Check for existing user
+        const userSnapshot = await usersRef
+          .where('email', '==', userInfo.email)
+          .limit(1)
+          .get();
+
+        if (userSnapshot.empty) {
+          // New user
+          const newUserData = {
+            email: userInfo.email,
+            calendarUrl: generateCalendarUrl(userInfo.name, userInfo.email),
+            createdAt: new Date(),
+            lastUpdated: new Date(),
+            googleLogin,
+            availability: {
+              weeklySchedule: {
+                monday: [{ start: '9:00', end: '17:00' }],
+                tuesday: [{ start: '9:00', end: '17:00' }],
+                wednesday: [{ start: '9:00', end: '17:00' }],
+                thursday: [{ start: '9:00', end: '17:00' }],
+                friday: [{ start: '9:00', end: '17:00' }]
+              },
+              exceptionDates: []
+            },
+            appsData: [{
+              type: 'gmail',
+              connected: true,
+              email: userInfo.email,
+              link: 'NA',
+              lastUpdated: new Date().toISOString()
+            }]
+          };
+
+          const newUserDoc = await usersRef.add(newUserData);
+          
+          return res.status(200).json({
+            success: true,
+            message: 'New user created successfully',
+            data: {
+              userId: newUserDoc.id,
+              ...newUserData,
+              googleLogin: {
+                ...googleLogin,
+                refreshToken: undefined
+              }
+            }
+          });
+
+        } else {
+          // Update existing user
+          const userDoc = userSnapshot.docs[0];
+          const updateData = {
+            lastUpdated: new Date(),
+            googleLogin,
+            appsData: [{
+              type: 'gmail',
+              connected: true,
+              email: userInfo.email,
+              link: 'NA',
+              lastUpdated: new Date().toISOString()
+            }]
+          };
+
+          await userDoc.ref.update(updateData);
+
+          return res.status(200).json({
+            success: true,
+            message: 'User updated successfully',
+            data: {
+              userId: userDoc.id,
+              email: userInfo.email,
+              googleLogin: {
+                ...googleLogin,
+                refreshToken: undefined
+              }
+            }
+          });
+        }
+
+      } catch (error) {
+        console.error('Google token exchange error:', error);
+        console.error('Error details:', error.response?.data || error.message);
         return res.status(400).json({
           success: false,
-          error: 'Unsupported provider'
+          error: 'Failed to authenticate with Google',
+          details: error.message
         });
-    }
-
-    const tokenManager = new TokenManager(db);
-    const tokenData = await tokenManager.generateTokenSet();
-
-    const currentTime = Date.now();
-
-    const providerLogin = {
-      name: userInfo.name,
-      picture: userInfo.picture || '',
-      email: userInfo.email,
-      providerUserId: userInfo.id,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      tokenType: tokens.token_type || 'Bearer',
-      tokenExpiryDate: currentTime + (tokens.expires_in * 1000),
-      lastLoginAt: new Date().toISOString(),
-      refreshTokenCreatedAt: currentTime,
-      refreshTokenExpiryDate: currentTime + (30 * 24 * 60 * 60 * 1000)
-    };
-
-    const usersRef = db.collection('meetflow_user_data');
-    const userSnapshot = await usersRef
-      .where('email', '==', userInfo.email)
-      .limit(1)
-      .get();
-
-    let userData;
-
-    if (userSnapshot.empty) {
-      // Create new user with all required fields
-      userData = {
-        email: userInfo.email,
-        name: userInfo.name,
-        calendarUrl: generateCalendarUrl(userInfo.name),
-        createdAt: new Date(),
-        lastUpdated: new Date(),
-        
-        // Root level token data
-        accessToken: tokenData.accessToken,
-        tokenType: tokenData.tokenType,
-        tokenExpiryDate: tokenData.tokenExpiryDate,
-        refreshToken: tokenData.refreshToken,
-        refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
-        refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
-        lastTokenRefresh: tokenData.lastTokenRefresh,
-        lastLoginAt: new Date().toISOString(),
-
-        // Provider specific login data
-        [`${provider}Login`]: providerLogin,
-
-        // Always include availability
-        availability: DEFAULT_AVAILABILITY,
-
-        // Always include appsData
-        appsData: getDefaultAppsData(userInfo.email, provider)
-      };
-
-      const newUserDoc = await usersRef.add(userData);
-      userData.userId = newUserDoc.id;
-
-    } else {
-      // Update existing user
-      const userDoc = userSnapshot.docs[0];
-      const existingData = userDoc.data();
-      
-      const updateData = {
-        lastUpdated: new Date(),
-        // Root level token data
-        accessToken: tokenData.accessToken,
-        tokenType: tokenData.tokenType,
-        tokenExpiryDate: tokenData.tokenExpiryDate,
-        refreshToken: tokenData.refreshToken,
-        refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
-        refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
-        lastTokenRefresh: tokenData.lastTokenRefresh,
-        lastLoginAt: new Date().toISOString(),
-        [`${provider}Login`]: providerLogin
-      };
-
-      // Ensure availability exists
-      if (!existingData.availability) {
-        updateData.availability = DEFAULT_AVAILABILITY;
       }
-
-      // Ensure appsData exists and includes provider entry
-      if (!existingData.appsData || !existingData.appsData.length) {
-        updateData.appsData = getDefaultAppsData(userInfo.email, provider);
-      } else if (!existingData.appsData.some(app => app.type === provider)) {
-        updateData.appsData = [
-          ...existingData.appsData,
-          {
-            type: provider,
-            connected: true,
-            email: userInfo.email,
-            link: 'NA',
-            lastUpdated: new Date().toISOString()
-          }
-        ];
-      }
-
-      await userDoc.ref.update(updateData);
-      userData = {
-        userId: userDoc.id,
-        email: userInfo.email,
-        [`${provider}Login`]: providerLogin,
-        availability: existingData.availability || DEFAULT_AVAILABILITY,
-        appsData: updateData.appsData || existingData.appsData
-      };
     }
-
-    return res.status(200).json({
-      success: true,
-      data: userData
-    });
 
   } catch (error) {
-    console.error('Social auth error:', error);
+    console.error('Auth error:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error during authentication',
