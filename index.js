@@ -691,74 +691,184 @@ app.post('/meetflow/user', async (req, res) => {
 
 // Add this to your index.js where other endpoints are defined
 
+// Constants to match frontend
+const GOOGLE_SCOPES = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.compose',
+  'https://mail.google.com/',
+  'https://www.googleapis.com/auth/userinfo.profile',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/script.projects',
+  'https://www.googleapis.com/auth/calendar.events.readonly',
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.settings.readonly'
+];
+
 app.post('/meetflow/auth/google', async (req, res) => {
   try {
     const { code } = req.body;
-
-    // Initialize OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
-      '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',
-      'https//:www.meetsynk.com/apps'
-    );
-
-    // Exchange code for tokens
-    const { tokens } = await oauth2Client.getToken(code);
-
-    // Get user info
-    oauth2Client.setCredentials(tokens);
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-    const userInfoResponse = await oauth2.userinfo.get();
-    const userInfo = userInfoResponse.data;
-    console.log('userInfo',userInfo)
-    // Current timestamp and formatted datetime
-    const currentTime = Date.now();
-    const date = new Date(currentTime);
-    const lastTokenRefreshDateTime = 
-      `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
-      `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
-
-    // Prepare data for user API
-    const userData = {
-      email: userInfo.email,
-      name: userInfo.name,
-      picture: userInfo.picture,
-      provider: 'google',
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      tokenType: tokens.token_type,
-      tokenExpiryDate: currentTime + (tokens.expires_in * 1000),
-      tokenCreatedAt: currentTime,
-      lastTokenRefresh: currentTime,
-      lastTokenRefreshDateTime: lastTokenRefreshDateTime,
-      calanderConnected: true,
-      gmailConnected: true
-    };
-
-    // Forward to your existing user API endpoint
-    const userApiResponse = await fetch(`https://public-apis-1087929121342.us-central1.run.app/meetflow/user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(userData)
-    });
-
-    const userApiData = await userApiResponse.json();
-    console.log('userApiData',userApiData)
-    // Handle response
-    if (!userApiResponse.ok) {
-      throw new Error(userApiData.error || 'Failed to process user data');
+    
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        error: 'Authorization code is required'
+      });
     }
 
-    // Return success response matching your API format
-    return res.status(userApiResponse.status).json(userApiData);
+    // Initialize OAuth2 client with exact matching parameters
+    const oauth2Client = new google.auth.OAuth2(
+      '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com', // Exactly match frontend client ID
+      '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',
+      `https://www.meetsynk.com/login`
+    );
+
+    try {
+      // Get tokens with exact parameters matching frontend
+      const { tokens } = await oauth2Client.getToken({
+        code: code,
+        redirect_uri: `https://www.meetsynk.com/login`,
+        scope: GOOGLE_SCOPES.join(' ')
+      }).catch(error => {
+        console.error('Token exchange error details:', {
+          error: error.response?.data || error.message,
+          status: error.response?.status,
+          code: code,
+          redirect_uri: `https://www.meetsynk.com/login`
+        });
+        throw error;
+      });
+
+      if (!tokens || !tokens.access_token) {
+        throw new Error('Failed to receive valid tokens from Google');
+      }
+
+      // Set credentials and get user info
+      oauth2Client.setCredentials(tokens);
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+      
+      const userInfoResponse = await oauth2.userinfo.get();
+      const userInfo = userInfoResponse.data;
+      console.log('userInfo',userInfo);
+      // Current timestamp and formatted datetime
+      const currentTime = Date.now();
+      const date = new Date(currentTime);
+      const lastTokenRefreshDateTime = 
+        `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
+        `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+      // Create user data object
+      const googleLogin = {
+        name: userInfo.name,
+        picture: userInfo.picture || '',
+        calanderConnected: true,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenType: tokens.token_type || 'Bearer',
+        tokenExpiryDate: currentTime + (tokens.expires_in * 1000),
+        lastLoginAt: new Date().toISOString(),
+        lastTokenRefresh: currentTime,
+        lastTokenRefreshDateTime,
+        refreshTokenCreatedAt: currentTime,
+        refreshTokenExpiryDate: currentTime + (30 * 24 * 60 * 60 * 1000) // 30 days
+      };
+
+      const usersRef = db.collection('meetflow_user_data');
+      
+      // Check for existing user
+      const userSnapshot = await usersRef
+        .where('email', '==', userInfo.email)
+        .limit(1)
+        .get();
+
+      if (userSnapshot.empty) {
+        // New user
+        const newUserData = {
+          email: userInfo.email,
+          calendarUrl: generateCalendarUrl(userInfo.name, userInfo.email),
+          createdAt: new Date(),
+          lastUpdated: new Date(),
+          googleLogin,
+          availability: {
+            weeklySchedule: {
+              monday: [{ start: '9:00', end: '17:00' }],
+              tuesday: [{ start: '9:00', end: '17:00' }],
+              wednesday: [{ start: '9:00', end: '17:00' }],
+              thursday: [{ start: '9:00', end: '17:00' }],
+              friday: [{ start: '9:00', end: '17:00' }]
+            },
+            exceptionDates: []
+          },
+          appsData: [{
+            type: 'gmail',
+            connected: true,
+            email: userInfo.email,
+            link: 'NA',
+            lastUpdated: new Date().toISOString()
+          }]
+        };
+
+        const newUserDoc = await usersRef.add(newUserData);
+        
+        return res.status(200).json({
+          success: true,
+          message: 'New user created successfully',
+          data: {
+            userId: newUserDoc.id,
+            ...newUserData,
+            googleLogin: {
+              ...googleLogin,
+              refreshToken: undefined
+            }
+          }
+        });
+
+      } else {
+        // Update existing user
+        const userDoc = userSnapshot.docs[0];
+        const updateData = {
+          lastUpdated: new Date(),
+          googleLogin,
+          appsData: [{
+            type: 'gmail',
+            connected: true,
+            email: userInfo.email,
+            link: 'NA',
+            lastUpdated: new Date().toISOString()
+          }]
+        };
+
+        await userDoc.ref.update(updateData);
+
+        return res.status(200).json({
+          success: true,
+          message: 'User updated successfully',
+          data: {
+            userId: userDoc.id,
+            email: userInfo.email,
+            googleLogin: {
+              ...googleLogin,
+              refreshToken: undefined
+            }
+          }
+        });
+      }
+
+    } catch (tokenError) {
+      console.error('Token exchange or user info error:', tokenError);
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to authenticate with Google',
+        details: tokenError.message
+      });
+    }
 
   } catch (error) {
     console.error('Google auth error:', error);
     return res.status(500).json({
       success: false,
-      error: 'Failed to process Google authentication',
+      error: 'Internal server error during Google authentication',
       details: error.message
     });
   }
