@@ -1497,63 +1497,86 @@ function getMonthRange(dateString) {
 // Create Event API
 app.post('/meetflow/eventcreate', async (req, res) => {
   try {
-    const { title, duration, location, description, email,reminders = {
-      whatsapp: {
-        enabled: false,
-        timing: 15
-      }
-    } } = req.body;
-    
+    const { 
+      id, 
+      title, 
+      duration, 
+      location, 
+      description, 
+      email,
+      reminders = { whatsapp: { enabled: false, timing: 15 } }
+    } = req.body;
+
     if (!title || !duration || !location || !email) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields'
       });
     }
-    
-    // Generate the slug
-    const slug = `${email.split('@')[0]}/${title.toLowerCase().replace(/\s+/g, '-')}`;
-    
-    // Check if slug already exists
-    const existingEventQuery = await db.collection('meetflow_user_event')
-      .where('slug', '==', slug)
-      .get();
-    
-    if (!existingEventQuery.empty) {
-      return res.status(409).json({
-        success: false,
-        error: 'An event with this title already exists. Please choose a different title.'
-      });
-    }
-    
-    // Create event data
-    const eventData = {
+
+    const baseEventData = {
       title,
       duration,
       location,
       description,
       email,
-      slug,
-      createdAt: new Date().toISOString(),
+      reminders,
       updatedAt: new Date().toISOString()
     };
-    
-    // Let Firestore generate the ID
-    const eventRef = await db.collection('meetflow_user_event').add(eventData);
-    
+
+    if (id) {
+      const eventRef = db.collection('meetflow_user_event').doc(id);
+      const eventDoc = await eventRef.get();
+
+      if (!eventDoc.exists) {
+        return res.status(404).json({
+          success: false,
+          error: 'Event not found'
+        });
+      }
+
+      await eventRef.update(baseEventData);
+      return res.status(200).json({
+        success: true,
+        data: {
+          id,
+          ...baseEventData,
+          slug: eventDoc.data().slug  // Preserve existing slug
+        }
+      });
+    }
+
+    const slug = `${email.split('@')[0]}/${title.toLowerCase().replace(/\s+/g, '-')}`;
+    const existingEvents = await db.collection('meetflow_user_event')
+      .where('slug', '==', slug)
+      .get();
+
+    if (!existingEvents.empty) {
+      return res.status(409).json({
+        success: false,
+        error: 'An event with this title already exists. Please choose a different title.'
+      });
+    }
+
+    const newEventData = {
+      ...baseEventData,
+      slug,
+      createdAt: new Date().toISOString()
+    };
+
+    const eventRef = await db.collection('meetflow_user_event').add(newEventData);
     res.status(201).json({
       success: true,
       data: {
         id: eventRef.id,
-        ...eventData
+        ...newEventData
       }
     });
-    
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Event creation/update error:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to create event'
+      error: 'Failed to process event'
     });
   }
 });
