@@ -327,85 +327,85 @@ require('./user/index')(app, server);
 
 
 // APIs start for meetflow
-app.post('/meetflow/signup', async (req, res) => {
-  try {
-    const { email, phoneNumber, name, password } = req.body;
+// app.post('/meetflow/signup', async (req, res) => {
+//   try {
+//     const { email, phoneNumber, name, password } = req.body;
 
-    // Validate required fields
-    if (!email || !name || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide email, name and password'
-      });
-    }
+//     // Validate required fields
+//     if (!email || !name || !password) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide email, name and password'
+//       });
+//     }
 
-    const usersRef = db.collection('meetflow_user_data');
+//     const usersRef = db.collection('meetflow_user_data');
 
-    // Check if user already exists with this email
-    const existingUserSnapshot = await usersRef
-      .where('email', '==', email)
-      .limit(1)
-      .get();
+//     // Check if user already exists with this email
+//     const existingUserSnapshot = await usersRef
+//       .where('email', '==', email)
+//       .limit(1)
+//       .get();
 
-    if (!existingUserSnapshot.empty) {
-      return res.status(409).json({
-        success: false,
-        error: 'User with this email already exists'
-      });
-    }
+//     if (!existingUserSnapshot.empty) {
+//       return res.status(409).json({
+//         success: false,
+//         error: 'User with this email already exists'
+//       });
+//     }
 
-    // Generate token set for new user
-    const tokenManager = new TokenManager(db);
-    const tokenData = await tokenManager.generateTokenSet();
+//     // Generate token set for new user
+//     const tokenManager = new TokenManager(db);
+//     const tokenData = await tokenManager.generateTokenSet();
 
-    // Create customLogin object
-    const customLogin = {
-      name,
-      picture: '', // Default empty
-      calanderConnected: false, // Default false
-      accessToken: tokenData.accessToken,
-      tokenType: tokenData.tokenType,
-      tokenExpiryDate: tokenData.tokenExpiryDate,
-      lastLoginAt: new Date().toISOString(),
-      password, // In production, hash this password before storing
-      // Token management fields
-      refreshToken: tokenData.refreshToken,
-      refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
-      refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
-      lastTokenRefresh: tokenData.lastTokenRefresh
-    };
+//     // Create customLogin object
+//     const customLogin = {
+//       name,
+//       picture: '', // Default empty
+//       calanderConnected: false, // Default false
+//       accessToken: tokenData.accessToken,
+//       tokenType: tokenData.tokenType,
+//       tokenExpiryDate: tokenData.tokenExpiryDate,
+//       lastLoginAt: new Date().toISOString(),
+//       password, // In production, hash this password before storing
+//       // Token management fields
+//       refreshToken: tokenData.refreshToken,
+//       refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
+//       refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
+//       lastTokenRefresh: tokenData.lastTokenRefresh
+//     };
 
-    // Create new user document
-    const newUserDoc = await usersRef.add({
-      email,
-      phoneNumber: phoneNumber || '', // Optional field
-      customLogin
-    });
+//     // Create new user document
+//     const newUserDoc = await usersRef.add({
+//       email,
+//       phoneNumber: phoneNumber || '', // Optional field
+//       customLogin
+//     });
 
-    // Prepare response data
-    const responseData = {
-      userId: newUserDoc.id,
-      email,
-      phoneNumber: phoneNumber || '',
-      customLogin: {
-        ...customLogin,
-        password: undefined // Remove password from response
-      }
-    };
+//     // Prepare response data
+//     const responseData = {
+//       userId: newUserDoc.id,
+//       email,
+//       phoneNumber: phoneNumber || '',
+//       customLogin: {
+//         ...customLogin,
+//         password: undefined // Remove password from response
+//       }
+//     };
 
-    return res.status(201).json({
-      success: true,
-      data: responseData
-    });
+//     return res.status(201).json({
+//       success: true,
+//       data: responseData
+//     });
 
-  } catch (error) {
-    console.error('Signup error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
-  }
-});
+//   } catch (error) {
+//     console.error('Signup error:', error);
+//     return res.status(500).json({
+//       success: false,
+//       error: 'Internal server error'
+//     });
+//   }
+// });
 
 // app.post('/meetflow/login', async (req, res) => {
 //   try {
@@ -875,200 +875,615 @@ app.post('/meetflow/signup', async (req, res) => {
 // });
 
 // Default structures for new users
-const DEFAULT_AVAILABILITY = {
-  weeklySchedule: {
-    monday: [{ start: '9:00', end: '17:00' }],
-    tuesday: [{ start: '9:00', end: '17:00' }],
-    wednesday: [{ start: '9:00', end: '17:00' }],
-    thursday: [{ start: '9:00', end: '17:00' }],
-    friday: [{ start: '9:00', end: '17:00' }]
-  },
-  exceptionDates: []
-};
+// const DEFAULT_AVAILABILITY = {
+//   weeklySchedule: {
+//     monday: [{ start: '9:00', end: '17:00' }],
+//     tuesday: [{ start: '9:00', end: '17:00' }],
+//     wednesday: [{ start: '9:00', end: '17:00' }],
+//     thursday: [{ start: '9:00', end: '17:00' }],
+//     friday: [{ start: '9:00', end: '17:00' }]
+//   },
+//   exceptionDates: []
+// };
 
-const getDefaultAppsData = (email, provider = 'custom') => [{
-  type: provider,
-  connected: true,
-  email: email,
-  link: 'NA',
-  lastUpdated: new Date().toISOString()
-}];
+// const getDefaultAppsData = (email, provider = 'custom') => [{
+//   type: provider,
+//   connected: true,
+//   email: email,
+//   link: 'NA',
+//   lastUpdated: new Date().toISOString()
+// }];
 
-// Email/Phone login endpoint
-app.post('/meetflow/login', async (req, res) => {
-  try {
-    const { email, phoneNumber, password, otp } = req.body;
+// // Email/Phone login endpoint
+// app.post('/meetflow/login', async (req, res) => {
+//   try {
+//     const { email, phoneNumber, password, otp } = req.body;
     
-    const isEmailPassword = email && password;
-    const isPhoneOTP = phoneNumber && otp;
+//     const isEmailPassword = email && password;
+//     const isPhoneOTP = phoneNumber && otp;
     
-    if (!isEmailPassword && !isPhoneOTP || (isEmailPassword && isPhoneOTP)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide either email + password OR phone number + OTP'
-      });
-    }
+//     if (!isEmailPassword && !isPhoneOTP || (isEmailPassword && isPhoneOTP)) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide either email + password OR phone number + OTP'
+//       });
+//     }
 
-    const usersRef = db.collection('meetflow_user_data');
-    const userSnapshot = await usersRef
-      .where(isEmailPassword ? 'email' : 'phoneNumber', '==', isEmailPassword ? email : phoneNumber)
-      .limit(1)
-      .get();
+//     const usersRef = db.collection('meetflow_user_data');
+//     const userSnapshot = await usersRef
+//       .where(isEmailPassword ? 'email' : 'phoneNumber', '==', isEmailPassword ? email : phoneNumber)
+//       .limit(1)
+//       .get();
 
-    if (userSnapshot.empty) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
-    }
+//     if (userSnapshot.empty) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
 
-    const userDoc = userSnapshot.docs[0];
-    const userData = userDoc.data();
+//     const userDoc = userSnapshot.docs[0];
+//     const userData = userDoc.data();
 
-    if (isEmailPassword && userData.customLogin?.password !== password) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid password'
-      });
-    }
+//     if (isEmailPassword && userData.customLogin?.password !== password) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Invalid password'
+//       });
+//     }
 
-    const tokenManager = new TokenManager(db);
-    const tokenData = await tokenManager.generateTokenSet();
+//     const tokenManager = new TokenManager(db);
+//     const tokenData = await tokenManager.generateTokenSet();
 
-    const updateData = {
-      lastUpdated: new Date(),
-      accessToken: tokenData.accessToken,
-      tokenType: tokenData.tokenType,
-      tokenExpiryDate: tokenData.tokenExpiryDate,
-      refreshToken: tokenData.refreshToken,
-      refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
-      refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
-      lastTokenRefresh: tokenData.lastTokenRefresh,
-      lastLoginAt: new Date().toISOString()
-    };
+//     const updateData = {
+//       lastUpdated: new Date(),
+//       accessToken: tokenData.accessToken,
+//       tokenType: tokenData.tokenType,
+//       tokenExpiryDate: tokenData.tokenExpiryDate,
+//       refreshToken: tokenData.refreshToken,
+//       refreshTokenCreatedAt: tokenData.refreshTokenCreatedAt,
+//       refreshTokenExpiryDate: tokenData.refreshTokenExpiryDate,
+//       lastTokenRefresh: tokenData.lastTokenRefresh,
+//       lastLoginAt: new Date().toISOString()
+//     };
 
-    // Ensure availability exists
-    if (!userData.availability) {
-      updateData.availability = DEFAULT_AVAILABILITY;
-    }
+//     // Ensure availability exists
+//     if (!userData.availability) {
+//       updateData.availability = DEFAULT_AVAILABILITY;
+//     }
 
-    // Ensure appsData exists with at least custom login entry
-    if (!userData.appsData || !userData.appsData.length) {
-      updateData.appsData = getDefaultAppsData(email || phoneNumber);
-    }
+//     // Ensure appsData exists with at least custom login entry
+//     if (!userData.appsData || !userData.appsData.length) {
+//       updateData.appsData = getDefaultAppsData(email || phoneNumber);
+//     }
 
-    await userDoc.ref.update(updateData);
+//     await userDoc.ref.update(updateData);
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        userId: userDoc.id,
-        email: userData.email || null,
-        phoneNumber: userData.phoneNumber || null,
-        accessToken: tokenData.accessToken,
-        tokenType: tokenData.tokenType,
-        availability: userData.availability || DEFAULT_AVAILABILITY,
-        appsData: userData.appsData || getDefaultAppsData(email || phoneNumber)
-      }
-    });
+//     return res.status(200).json({
+//       success: true,
+//       data: {
+//         userId: userDoc.id,
+//         email: userData.email || null,
+//         phoneNumber: userData.phoneNumber || null,
+//         accessToken: tokenData.accessToken,
+//         tokenType: tokenData.tokenType,
+//         availability: userData.availability || DEFAULT_AVAILABILITY,
+//         appsData: userData.appsData || getDefaultAppsData(email || phoneNumber)
+//       }
+//     });
 
-  } catch (error) {
-    console.error('Login error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    });
-  }
-});
+//   } catch (error) {
+//     console.error('Login error:', error);
+//     return res.status(500).json({
+//       success: false,
+//       error: 'Internal server error'
+//     });
+//   }
+// });
 
 // Social login endpoint
+// app.post('/meetflow/auth/:provider', async (req, res) => {
+//   try {
+//     const { provider } = req.params;
+//     const { code } = req.body;
+
+//     console.log('Received auth request:', { provider, code });
+
+//     if (!code) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Authorization code is required'
+//       });
+//     }
+//     console.log('provider',provider);
+//     if (provider === 'google') {
+//       try {
+//         // Initialize OAuth2 client with exact matching parameters
+//         const oauth2Client = new google.auth.OAuth2(
+//           '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
+//           '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',
+//           `https://www.meetsynk.com/login`
+//         );
+
+//         // Log the parameters being used
+//         console.log('OAuth2 parameters:', {
+//           redirectUri: `https://www.meetsynk.com/login`,
+//           code: code
+//         });
+
+//         // Exchange code for tokens
+//         const { tokens } = await oauth2Client.getToken({
+//           code: code,
+//           redirect_uri: `https://www.meetsynk.com/login`,
+//           scope: GOOGLE_SCOPES.join(' ')
+//         });
+
+//         console.log('Received tokens:', {
+//           hasAccessToken: !!tokens.access_token,
+//           hasRefreshToken: !!tokens.refresh_token,
+//           expiryDate: tokens.expiry_date
+//         });
+
+//         // Set credentials and get user info
+//         oauth2Client.setCredentials(tokens);
+//         const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+//         const userInfoResponse = await oauth2.userinfo.get();
+//         const userInfo = userInfoResponse.data;
+
+//         // Current timestamp and formatted datetime
+//         const currentTime = Date.now();
+//         const date = new Date(currentTime);
+//         const lastTokenRefreshDateTime = 
+//           `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
+//           `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+//         // Create user data object
+//         const googleLogin = {
+//           name: userInfo.name,
+//           picture: userInfo.picture || '',
+//           calanderConnected: true,
+//           accessToken: tokens.access_token,
+//           refreshToken: tokens.refresh_token,
+//           tokenType: tokens.token_type || 'Bearer',
+//           tokenExpiryDate: currentTime + (tokens.expires_in * 1000),
+//           lastLoginAt: new Date().toISOString(),
+//           lastTokenRefresh: currentTime,
+//           lastTokenRefreshDateTime,
+//           refreshTokenCreatedAt: currentTime,
+//           refreshTokenExpiryDate: currentTime + (30 * 24 * 60 * 60 * 1000)
+//         };
+
+//         const usersRef = db.collection('meetflow_user_data');
+        
+//         // Check for existing user
+//         const userSnapshot = await usersRef
+//           .where('email', '==', userInfo.email)
+//           .limit(1)
+//           .get();
+
+//         if (userSnapshot.empty) {
+//           // New user
+//           const newUserData = {
+//             email: userInfo.email,
+//             calendarUrl: generateCalendarUrl(userInfo.name, userInfo.email),
+//             createdAt: new Date(),
+//             lastUpdated: new Date(),
+//             googleLogin,
+//             availability: {
+//               weeklySchedule: {
+//                 monday: [{ start: '9:00', end: '17:00' }],
+//                 tuesday: [{ start: '9:00', end: '17:00' }],
+//                 wednesday: [{ start: '9:00', end: '17:00' }],
+//                 thursday: [{ start: '9:00', end: '17:00' }],
+//                 friday: [{ start: '9:00', end: '17:00' }]
+//               },
+//               exceptionDates: []
+//             },
+//             appsData: [{
+//               type: 'gmail',
+//               connected: true,
+//               email: userInfo.email,
+//               link: 'NA',
+//               lastUpdated: new Date().toISOString()
+//             }]
+//           };
+
+//           const newUserDoc = await usersRef.add(newUserData);
+          
+//           return res.status(200).json({
+//             success: true,
+//             message: 'New user created successfully',
+//             data: {
+//               userId: newUserDoc.id,
+//               ...newUserData,
+//               googleLogin: {
+//                 ...googleLogin,
+//                 refreshToken: undefined
+//               }
+//             }
+//           });
+
+//         } else {
+//           // Update existing user
+//           const userDoc = userSnapshot.docs[0];
+//           const updateData = {
+//             lastUpdated: new Date(),
+//             googleLogin,
+//             appsData: [{
+//               type: 'gmail',
+//               connected: true,
+//               email: userInfo.email,
+//               link: 'NA',
+//               lastUpdated: new Date().toISOString()
+//             }]
+//           };
+
+//           await userDoc.ref.update(updateData);
+
+//           return res.status(200).json({
+//             success: true,
+//             message: 'User updated successfully',
+//             data: {
+//               userId: userDoc.id,
+//               email: userInfo.email,
+//               googleLogin: {
+//                 ...googleLogin,
+//                 refreshToken: undefined
+//               }
+//             }
+//           });
+//         }
+
+//       } catch (error) {
+//         console.error('Google token exchange error:', error);
+//         console.error('Error details:', error.response?.data || error.message);
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Failed to authenticate with Google',
+//           details: error.message
+//         });
+//       }
+//     }
+
+//   } catch (error) {
+//     console.error('Auth error:', error);
+//     return res.status(500).json({
+//       success: false,
+//       error: 'Internal server error during authentication',
+//       details: error.message
+//     });
+//   }
+// });
+// Helper function to generate unique calendar URL
+// const generateCalendarUrl = (name) => {
+//   const cleanName = name.toLowerCase()
+//     .replace(/\s+/g, '')
+//     .replace(/[^a-z0-9]/g, '');
+  
+//   return `${cleanName}${Math.random().toString(36).substr(2, 6)}`;
+// };
+
+// constants.js
+
+
+// Main auth endpoint
 app.post('/meetflow/auth/:provider', async (req, res) => {
   try {
     const { provider } = req.params;
-    const { code } = req.body;
+    console.log('Auth request for provider:', provider);
 
-    console.log('Received auth request:', { provider, code });
+    const usersRef = db.collection('meetflow_user_data');
+    const tokenManager = new TokenManager(db);
 
-    if (!code) {
-      return res.status(400).json({
-        success: false,
-        error: 'Authorization code is required'
-      });
-    }
-    console.log('provider',provider);
-    if (provider === 'google') {
-      try {
-        // Initialize OAuth2 client with exact matching parameters
-        const oauth2Client = new google.auth.OAuth2(
-          '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
-          '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',
-          `https://www.meetsynk.com/login`
-        );
+    switch (provider) {
+      case 'google': {
+        const { code } = req.body;
+        if (!code) {
+          return res.status(400).json({
+            success: false,
+            error: 'Authorization code is required'
+          });
+        }
 
-        // Log the parameters being used
-        console.log('OAuth2 parameters:', {
-          redirectUri: `https://www.meetsynk.com/login`,
-          code: code
-        });
+        try {
+          const oauth2Client = new google.auth.OAuth2(
+            '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
+            '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',
+            'https://www.meetsynk.com/login'
+          );
 
-        // Exchange code for tokens
-        const { tokens } = await oauth2Client.getToken({
-          code: code,
-          redirect_uri: `https://www.meetsynk.com/login`,
-          scope: GOOGLE_SCOPES.join(' ')
-        });
+          console.log('OAuth2 parameters:', {
+            redirectUri: 'https://www.meetsynk.com/login',
+            code: code
+          });
 
-        console.log('Received tokens:', {
-          hasAccessToken: !!tokens.access_token,
-          hasRefreshToken: !!tokens.refresh_token,
-          expiryDate: tokens.expiry_date
-        });
+          const { tokens } = await oauth2Client.getToken({
+            code: code,
+            redirect_uri: 'https://www.meetsynk.com/login',
+            scope: GOOGLE_SCOPES.join(' ')
+          });
 
-        // Set credentials and get user info
-        oauth2Client.setCredentials(tokens);
-        const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-        const userInfoResponse = await oauth2.userinfo.get();
-        const userInfo = userInfoResponse.data;
+          console.log('Received tokens:', {
+            hasAccessToken: !!tokens.access_token,
+            hasRefreshToken: !!tokens.refresh_token,
+            expiryDate: tokens.expiry_date
+          });
 
-        // Current timestamp and formatted datetime
-        const currentTime = Date.now();
-        const date = new Date(currentTime);
-        const lastTokenRefreshDateTime = 
-          `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
-          `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+          oauth2Client.setCredentials(tokens);
+          const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+          const userInfoResponse = await oauth2.userinfo.get();
+          const userInfo = userInfoResponse.data;
 
-        // Create user data object
-        const googleLogin = {
-          name: userInfo.name,
-          picture: userInfo.picture || '',
-          calanderConnected: true,
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
-          tokenType: tokens.token_type || 'Bearer',
-          tokenExpiryDate: currentTime + (tokens.expires_in * 1000),
-          lastLoginAt: new Date().toISOString(),
-          lastTokenRefresh: currentTime,
-          lastTokenRefreshDateTime,
-          refreshTokenCreatedAt: currentTime,
-          refreshTokenExpiryDate: currentTime + (30 * 24 * 60 * 60 * 1000)
+          const currentTime = Date.now();
+          const date = new Date(currentTime);
+          const lastTokenRefreshDateTime = 
+            `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ` +
+            `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+          const googleLogin = {
+            name: userInfo.name,
+            picture: userInfo.picture || '',
+            calanderConnected: true,
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+            tokenType: tokens.token_type || 'Bearer',
+            tokenExpiryDate: currentTime + (tokens.expires_in * 1000),
+            lastLoginAt: new Date().toISOString(),
+            lastTokenRefresh: currentTime,
+            lastTokenRefreshDateTime,
+            refreshTokenCreatedAt: currentTime,
+            refreshTokenExpiryDate: currentTime + (30 * 24 * 60 * 60 * 1000)
+          };
+
+          const userSnapshot = await usersRef
+            .where('email', '==', userInfo.email)
+            .limit(1)
+            .get();
+
+          if (userSnapshot.empty) {
+            const newUserData = {
+              email: userInfo.email,
+              calendarUrl: generateCalendarUrl(userInfo.name, userInfo.email),
+              createdAt: new Date(),
+              lastUpdated: new Date(),
+              loginProvider: 'google',
+              googleLogin,
+              availability: {
+                weeklySchedule: {
+                  monday: [{ start: '9:00', end: '17:00' }],
+                  tuesday: [{ start: '9:00', end: '17:00' }],
+                  wednesday: [{ start: '9:00', end: '17:00' }],
+                  thursday: [{ start: '9:00', end: '17:00' }],
+                  friday: [{ start: '9:00', end: '17:00' }]
+                },
+                exceptionDates: []
+              },
+              appsData: [{
+                type: 'gmail',
+                connected: true,
+                email: userInfo.email,
+                link: 'NA',
+                lastUpdated: new Date().toISOString()
+              }]
+            };
+
+            const newUserDoc = await usersRef.add(newUserData);
+            return res.status(200).json({
+              success: true,
+              message: 'New user created successfully',
+              data: {
+                userId: newUserDoc.id,
+                ...newUserData,
+                googleLogin: {
+                  ...googleLogin,
+                  refreshToken: undefined
+                }
+              }
+            });
+          } else {
+            const userDoc = userSnapshot.docs[0];
+            const updateData = {
+              lastUpdated: new Date(),
+              loginProvider: 'google',
+              googleLogin,
+              appsData: [{
+                type: 'gmail',
+                connected: true,
+                email: userInfo.email,
+                link: 'NA',
+                lastUpdated: new Date().toISOString()
+              }]
+            };
+
+            await userDoc.ref.update(updateData);
+            return res.status(200).json({
+              success: true,
+              message: 'User updated successfully',
+              data: {
+                userId: userDoc.id,
+                email: userInfo.email,
+                googleLogin: {
+                  ...googleLogin,
+                  refreshToken: undefined
+                }
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Google token exchange error:', error);
+          console.error('Error details:', error.response?.data || error.message);
+          return res.status(400).json({
+            success: false,
+            error: 'Failed to authenticate with Google',
+            details: error.message
+          });
+        }
+        break;
+      }
+
+      case 'email-signup': {
+        const { email, password, name, confirmPassword } = req.body;
+        
+        if (!email || !password || !name || !confirmPassword) {
+          return res.status(400).json({
+            success: false,
+            error: 'All fields are required'
+          });
+        }
+
+        if (password !== confirmPassword) {
+          return res.status(400).json({
+            success: false,
+            error: 'Passwords do not match'
+          });
+        }
+
+        const userSnapshot = await usersRef
+          .where('email', '==', email)
+          .limit(1)
+          .get();
+
+        if (!userSnapshot.empty) {
+          return res.status(400).json({
+            success: false,
+            error: 'Email already registered'
+          });
+        }
+
+        const tokens = await tokenManager.generateTokenSet();
+        const newUserData = {
+          email,
+          name,
+          loginProvider: 'email',
+          calendarUrl: generateCalendarUrl(name, email),
+          createdAt: new Date(),
+          lastUpdated: new Date(),
+          emailLogin: {
+            password, // In production, hash this password
+            name,
+            picture: '',
+            calanderConnected: false,
+            accessToken: tokens.accessToken,
+            tokenType: tokens.tokenType,
+            tokenExpiryDate: tokens.tokenExpiryDate,
+            lastLoginAt: new Date().toISOString(),
+            refreshToken: tokens.refreshToken,
+            refreshTokenCreatedAt: tokens.refreshTokenCreatedAt,
+            refreshTokenExpiryDate: tokens.refreshTokenExpiryDate,
+            lastTokenRefresh: tokens.lastTokenRefresh
+          },
+          availability: {
+            weeklySchedule: {
+              monday: [{ start: '9:00', end: '17:00' }],
+              tuesday: [{ start: '9:00', end: '17:00' }],
+              wednesday: [{ start: '9:00', end: '17:00' }],
+              thursday: [{ start: '9:00', end: '17:00' }],
+              friday: [{ start: '9:00', end: '17:00' }]
+            },
+            exceptionDates: []
+          },
+          appsData: []
         };
 
-        const usersRef = db.collection('meetflow_user_data');
+        const newUserDoc = await usersRef.add(newUserData);
+        return res.status(200).json({
+          success: true,
+          message: 'Signup successful',
+          data: {
+            userId: newUserDoc.id,
+            email,
+            name,
+            loginProvider: 'email'
+          }
+        });
+      }
+
+      case 'email-login': {
+        const { email, password } = req.body;
         
-        // Check for existing user
+        if (!email || !password) {
+          return res.status(400).json({
+            success: false,
+            error: 'Email and password are required'
+          });
+        }
+
         const userSnapshot = await usersRef
-          .where('email', '==', userInfo.email)
+          .where('email', '==', email)
           .limit(1)
           .get();
 
         if (userSnapshot.empty) {
-          // New user
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        const userData = userSnapshot.docs[0].data();
+        if (userData.emailLogin?.password !== password) { // In production, compare hashed passwords
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid password'
+          });
+        }
+
+        const tokens = await tokenManager.generateTokenSet();
+        await userSnapshot.docs[0].ref.update({
+          lastUpdated: new Date(),
+          'emailLogin.lastLoginAt': new Date().toISOString(),
+          'emailLogin.accessToken': tokens.accessToken,
+          'emailLogin.tokenType': tokens.tokenType,
+          'emailLogin.tokenExpiryDate': tokens.tokenExpiryDate,
+          'emailLogin.refreshToken': tokens.refreshToken
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: 'Login successful',
+          data: {
+            userId: userSnapshot.docs[0].id,
+            email,
+            name: userData.name,
+            loginProvider: 'email'
+          }
+        });
+      }
+
+      case 'phone': {
+        const { phone, otp } = req.body;
+        
+        if (!phone || !otp) {
+          return res.status(400).json({
+            success: false,
+            error: 'Phone and OTP are required'
+          });
+        }
+
+        // Here you would verify OTP with your service
+        const tokens = await tokenManager.generateTokenSet();
+        const userSnapshot = await usersRef
+          .where('phone', '==', phone)
+          .limit(1)
+          .get();
+
+        if (userSnapshot.empty) {
           const newUserData = {
-            email: userInfo.email,
-            calendarUrl: generateCalendarUrl(userInfo.name, userInfo.email),
+            phone,
+            email: `${phone.replace(/\D/g, '')}@phone.meetsynk.com`,
+            loginProvider: 'phone',
+            calendarUrl: generateCalendarUrl(`user_${phone}`),
             createdAt: new Date(),
             lastUpdated: new Date(),
-            googleLogin,
+            phoneLogin: {
+              verified: true,
+              verifiedAt: new Date().toISOString(),
+              lastLoginAt: new Date().toISOString(),
+              accessToken: tokens.accessToken,
+              tokenType: tokens.tokenType,
+              tokenExpiryDate: tokens.tokenExpiryDate,
+              refreshToken: tokens.refreshToken
+            },
             availability: {
               weeklySchedule: {
                 monday: [{ start: '9:00', end: '17:00' }],
@@ -1080,69 +1495,51 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
               exceptionDates: []
             },
             appsData: [{
-              type: 'gmail',
+              type: 'phone',
               connected: true,
-              email: userInfo.email,
+              phone: phone,
               link: 'NA',
               lastUpdated: new Date().toISOString()
             }]
           };
 
           const newUserDoc = await usersRef.add(newUserData);
-          
           return res.status(200).json({
             success: true,
-            message: 'New user created successfully',
+            message: 'Phone signup successful',
             data: {
               userId: newUserDoc.id,
-              ...newUserData,
-              googleLogin: {
-                ...googleLogin,
-                refreshToken: undefined
-              }
+              phone,
+              loginProvider: 'phone'
             }
           });
-
         } else {
-          // Update existing user
-          const userDoc = userSnapshot.docs[0];
-          const updateData = {
+          await userSnapshot.docs[0].ref.update({
             lastUpdated: new Date(),
-            googleLogin,
-            appsData: [{
-              type: 'gmail',
-              connected: true,
-              email: userInfo.email,
-              link: 'NA',
-              lastUpdated: new Date().toISOString()
-            }]
-          };
-
-          await userDoc.ref.update(updateData);
+            'phoneLogin.lastLoginAt': new Date().toISOString(),
+            'phoneLogin.accessToken': tokens.accessToken,
+            'phoneLogin.tokenType': tokens.tokenType,
+            'phoneLogin.tokenExpiryDate': tokens.tokenExpiryDate,
+            'phoneLogin.refreshToken': tokens.refreshToken
+          });
 
           return res.status(200).json({
             success: true,
-            message: 'User updated successfully',
+            message: 'Phone login successful',
             data: {
-              userId: userDoc.id,
-              email: userInfo.email,
-              googleLogin: {
-                ...googleLogin,
-                refreshToken: undefined
-              }
+              userId: userSnapshot.docs[0].id,
+              phone,
+              loginProvider: 'phone'
             }
           });
         }
+      }
 
-      } catch (error) {
-        console.error('Google token exchange error:', error);
-        console.error('Error details:', error.response?.data || error.message);
+      default:
         return res.status(400).json({
           success: false,
-          error: 'Failed to authenticate with Google',
-          details: error.message
+          error: 'Invalid authentication provider'
         });
-      }
     }
 
   } catch (error) {
@@ -1154,16 +1551,15 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
     });
   }
 });
-// Helper function to generate unique calendar URL
-const generateCalendarUrl = (name) => {
-  const cleanName = name.toLowerCase()
+
+// Helper function
+function generateCalendarUrl(name, identifier = '') {
+  const cleanName = (name || 'user').toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[^a-z0-9]/g, '');
   
   return `${cleanName}${Math.random().toString(36).substr(2, 6)}`;
-};
-
-
+}
 
 
 app.post('/meetingflow/eventdetails', async (req, res) => {
