@@ -3185,29 +3185,29 @@ app.post('/meetflow/reset-password', async (req, res) => {
 // });
 
 
-// app.post('/meetflowto/chat', async (req, res) => {   
-//   try {       
-//       // Use API key from environment variable
-//       const together = new Together(process.env.TOGETHER_API_KEY);
+app.post('/meetflowto/chat', async (req, res) => {   
+  try {       
+      // Use API key from environment variable
+      const together = new Together(process.env.TOGETHER_API_KEY);
       
-//       const { messages } = req.body;       
+      const { messages } = req.body;       
       
-//       const response = await together.chat.completions.create({           
-//           messages: messages,           
-//           model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",           
-//           max_tokens: 500,           
-//           temperature: 0.7,       
-//       });        
+      const response = await together.chat.completions.create({           
+          messages: messages,           
+          model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",           
+          max_tokens: 500,           
+          temperature: 0.7,       
+      });        
 
-//       res.json({           
-//           success: true,           
-//           message: response.choices[0].message       
-//       });   
-//   } catch (error) {       
-//       console.error('Error:', error);       
-//       res.status(500).json({           
-//           success: false,           
-//           error: error.message       
-//       });   
-//   } 
-// });
+      res.json({           
+          success: true,           
+          message: response.choices[0].message       
+      });   
+  } catch (error) {       
+      console.error('Error:', error);       
+      res.status(500).json({           
+          success: false,           
+          error: error.message       
+      });   
+  } 
+});
