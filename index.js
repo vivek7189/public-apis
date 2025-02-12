@@ -1665,36 +1665,60 @@ app.post('/meetflow/eventcreate', async (req, res) => {
 
     let parsedEventData = null;
 
-    if (text && together) { // Check if text exists and Together AI is initialized
-      try {
-        const aiResponse = await together.chat.completions.create({
-          messages: [{
-            role: "user",
-            content: `Extract event details from this text: "${text}". Return JSON format with title, duration (in minutes), and meetType (location type). Example: {"title": "Team Meeting", "duration": 30, "meetType": "Google Meet"}`
-          }],
-          model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-          max_tokens: 500,
-          temperature: 0.7,
-        });
+    // Inside your event creation API, update the AI request part:
 
-        try {
-          const aiData = JSON.parse(aiResponse.choices[0].message.content);
-          parsedEventData = {
-            parsedTitle: aiData.title,
-            parsedDuration: aiData.duration,
-            meetType: aiData.meetType,
-            parseCategory: 'AI_PARSED',
-            originalText: text
-          };
-        } catch (parseError) {
-          console.error('Failed to parse AI response:', parseError);
-          // Removed EventParser fallback since it's commented out in imports
-        }
-      } catch (aiError) {
-        console.error('AI processing failed:', aiError);
-        // Removed EventParser fallback since it's commented out in imports
-      }
+if (text && together) {
+  try {
+    const aiResponse = await together.chat.completions.create({
+      messages: [{
+        role: "user",
+        content: `Convert this text to event JSON, respond ONLY with the JSON object, no additional text: "${text}". Required format: {"title": "Meeting Title", "duration": 30, "meetType": "Google Meet"}. The duration should be a number and meetType should be one of: "Google Meet", "Microsoft Teams", "WhatsApp", "Custom".`
+      }],
+      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      max_tokens: 500,
+      temperature: 0.3,  // Reduced temperature for more consistent output
+    });
+
+    try {
+      // Add logging to debug the response
+      console.log('AI Response content:', aiResponse.choices[0].message.content);
+      
+      // Clean the response before parsing
+      const cleanedContent = aiResponse.choices[0].message.content.trim();
+      const aiData = JSON.parse(cleanedContent);
+      
+      parsedEventData = {
+        parsedTitle: aiData.title || 'Untitled Meeting',
+        parsedDuration: typeof aiData.duration === 'number' ? aiData.duration : 30,
+        meetType: aiData.meetType || 'Google Meet',
+        parseCategory: 'AI_PARSED',
+        originalText: text
+      };
+    } catch (parseError) {
+      console.error('Raw AI response:', aiResponse.choices[0].message);
+      console.error('Parse error:', parseError);
+      
+      // Fallback to default values
+      parsedEventData = {
+        parsedTitle: title || 'Untitled Meeting',
+        parsedDuration: duration || 30,
+        meetType: location || 'Google Meet',
+        parseCategory: 'FALLBACK',
+        originalText: text
+      };
     }
+  } catch (aiError) {
+    console.error('AI API error:', aiError);
+    // Use default values if AI fails
+    parsedEventData = {
+      parsedTitle: title || 'Untitled Meeting',
+      parsedDuration: duration || 30,
+      meetType: location || 'Google Meet',
+      parseCategory: 'ERROR_FALLBACK',
+      originalText: text
+    };
+  }
+}
 
     const finalTitle = parsedEventData?.parsedTitle || title || 'Untitled Meeting';
     const finalDuration = parsedEventData?.parsedDuration || duration || 30;
