@@ -1431,7 +1431,6 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
           .where('email', '==', email)
           .limit(1)
           .get();
-          const usersRef = db.collection('meetflow_user_data');
         if (userSnapshot.empty) {
           return res.status(404).json({
             success: false,
