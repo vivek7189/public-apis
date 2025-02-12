@@ -3189,7 +3189,7 @@ app.post('/meetflow/reset-password', async (req, res) => {
 app.post('/meetflowto/chat', async (req, res) => {   
   try {       
       // Use API key from environment variable
-      const together = new Together(process.env.TOGETHER_API_KEY);
+      const together = new Together(process.env.DEEPSEEK_API_TOKEN_KEY);
       
       const { messages } = req.body;       
       
