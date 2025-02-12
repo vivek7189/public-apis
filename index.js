@@ -5,13 +5,14 @@ const multer = require('multer');
 //const rateLimit = require('express-rate-limit');
 //const { HfInference } = require("@huggingface/inference");
 const { Storage } = require('@google-cloud/storage');
-const Together = require('together-ai');
+
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { google } = require('googleapis');
 const TokenService = require('./token/token');
 const TokenManager = require('./token/token_manager');
+const Together = require('together-ai');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
 // Using require (CommonJS)
@@ -20,7 +21,7 @@ const Razorpay = require('razorpay');
 const axios = require('axios');
 const app = express();
 const emailService = require('./email-service/email');
-const EventParser = require('./eventParser/eventParser');
+//const EventParser = require('./eventParser/eventParser');
 app.use(cors());
 
 app.use(express.json());
@@ -1649,179 +1650,179 @@ app.put('/meetflow/updateemail', async (req, res) => {
 });
 // Event Type APIs
 // Create Event API
-app.post('/meetflow/parse-event', async (req, res) => {
-  try {
-    const { text } = req.body;
-    const parser = new EventParser();
-    const result = await parser.parseEvent(text);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-app.post('/meetflow/eventcreate', async (req, res) => {
-  try {
-    const {
-      text,
-      id,
-      title,
-      duration,
-      location,
-      description,
-      email,
-      reminders = { whatsapp: { enabled: false, timing: 15 } }
-    } = req.body;
+// app.post('/meetflow/parse-event', async (req, res) => {
+//   try {
+//     const { text } = req.body;
+//     const parser = new EventParser();
+//     const result = await parser.parseEvent(text);
+//     res.json(result);
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false, 
+//       error: error.message 
+//     });
+//   }
+// });
+// app.post('/meetflow/eventcreate', async (req, res) => {
+//   try {
+//     const {
+//       text,
+//       id,
+//       title,
+//       duration,
+//       location,
+//       description,
+//       email,
+//       reminders = { whatsapp: { enabled: false, timing: 15 } }
+//     } = req.body;
 
-    let parsedEventData = null;
+//     let parsedEventData = null;
 
-    if (text) {
-      try {
-        // First try Together AI
-        const together = new Together(process.env.TOGETHER_API_KEY);
-        const aiResponse = await together.chat.completions.create({
-          messages: [{
-            role: "user",
-            content: `Extract event details from this text: "${text}". Return JSON format with title, duration (in minutes), and meetType (location type). Example: {"title": "Team Meeting", "duration": 30, "meetType": "Google Meet"}`
-          }],
-          model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-          max_tokens: 500,
-          temperature: 0.7,
-        });
+//     if (text) {
+//       try {
+//         // First try Together AI
+//         const together = new Together(process.env.TOGETHER_API_KEY);
+//         const aiResponse = await together.chat.completions.create({
+//           messages: [{
+//             role: "user",
+//             content: `Extract event details from this text: "${text}". Return JSON format with title, duration (in minutes), and meetType (location type). Example: {"title": "Team Meeting", "duration": 30, "meetType": "Google Meet"}`
+//           }],
+//           model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+//           max_tokens: 500,
+//           temperature: 0.7,
+//         });
 
-        try {
-          const aiData = JSON.parse(aiResponse.choices[0].message.content);
-          parsedEventData = {
-            parsedTitle: aiData.title,
-            parsedDuration: aiData.duration,
-            meetType: aiData.meetType,
-            parseCategory: 'AI_PARSED',
-            originalText: text
-          };
-        } catch (parseError) {
-          console.error('Failed to parse AI response, falling back to EventParser:', parseError);
-          const parser = new EventParser();
-          const parseResult = await parser.parseEvent(text);
+//         try {
+//           const aiData = JSON.parse(aiResponse.choices[0].message.content);
+//           parsedEventData = {
+//             parsedTitle: aiData.title,
+//             parsedDuration: aiData.duration,
+//             meetType: aiData.meetType,
+//             parseCategory: 'AI_PARSED',
+//             originalText: text
+//           };
+//         } catch (parseError) {
+//           console.error('Failed to parse AI response, falling back to EventParser:', parseError);
+//           const parser = new EventParser();
+//           const parseResult = await parser.parseEvent(text);
           
-          if (parseResult.success) {
-            parsedEventData = {
-              parsedTitle: parseResult.data.title,
-              parsedDuration: parseResult.data.duration,
-              meetType: parseResult.data.meetType,
-              parseCategory: parseResult.data.metadata.category,
-              originalText: text
-            };
-          }
-        }
-      } catch (aiError) {
-        console.error('AI processing failed, falling back to EventParser:', aiError);
-        try {
-          const parser = new EventParser();
-          const parseResult = await parser.parseEvent(text);
+//           if (parseResult.success) {
+//             parsedEventData = {
+//               parsedTitle: parseResult.data.title,
+//               parsedDuration: parseResult.data.duration,
+//               meetType: parseResult.data.meetType,
+//               parseCategory: parseResult.data.metadata.category,
+//               originalText: text
+//             };
+//           }
+//         }
+//       } catch (aiError) {
+//         console.error('AI processing failed, falling back to EventParser:', aiError);
+//         try {
+//           const parser = new EventParser();
+//           const parseResult = await parser.parseEvent(text);
           
-          if (parseResult.success) {
-            parsedEventData = {
-              parsedTitle: parseResult.data.title,
-              parsedDuration: parseResult.data.duration,
-              meetType: parseResult.data.meetType,
-              parseCategory: parseResult.data.metadata.category,
-              originalText: text
-            };
-          }
-        } catch (parserError) {
-          console.error('EventParser failed:', parserError);
-        }
-      }
-    }
+//           if (parseResult.success) {
+//             parsedEventData = {
+//               parsedTitle: parseResult.data.title,
+//               parsedDuration: parseResult.data.duration,
+//               meetType: parseResult.data.meetType,
+//               parseCategory: parseResult.data.metadata.category,
+//               originalText: text
+//             };
+//           }
+//         } catch (parserError) {
+//           console.error('EventParser failed:', parserError);
+//         }
+//       }
+//     }
 
-    const finalTitle = parsedEventData?.parsedTitle || title || 'Untitled Meeting';
-    const finalDuration = parsedEventData?.parsedDuration || duration || 30;
-    const finalLocation = parsedEventData?.meetType || location || 'Google Meet';
+//     const finalTitle = parsedEventData?.parsedTitle || title || 'Untitled Meeting';
+//     const finalDuration = parsedEventData?.parsedDuration || duration || 30;
+//     const finalLocation = parsedEventData?.meetType || location || 'Google Meet';
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email is required'
-      });
-    }
+//     if (!email) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Email is required'
+//       });
+//     }
 
-    const baseEventData = {
-      title: finalTitle,
-      duration: finalDuration,
-      location: finalLocation,
-      description: description || text || `Meeting scheduled for ${finalDuration} minutes`,
-      email,
-      reminders,
-      updatedAt: new Date().toISOString(),
-      ...(parsedEventData && { parsedEventData })
-    };
+//     const baseEventData = {
+//       title: finalTitle,
+//       duration: finalDuration,
+//       location: finalLocation,
+//       description: description || text || `Meeting scheduled for ${finalDuration} minutes`,
+//       email,
+//       reminders,
+//       updatedAt: new Date().toISOString(),
+//       ...(parsedEventData && { parsedEventData })
+//     };
 
-    if (id) {
-      const eventRef = db.collection('meetflow_user_event').doc(id);
-      const eventDoc = await eventRef.get();
+//     if (id) {
+//       const eventRef = db.collection('meetflow_user_event').doc(id);
+//       const eventDoc = await eventRef.get();
 
-      if (!eventDoc.exists) {
-        return res.status(404).json({
-          success: false,
-          error: 'Event not found'
-        });
-      }
+//       if (!eventDoc.exists) {
+//         return res.status(404).json({
+//           success: false,
+//           error: 'Event not found'
+//         });
+//       }
 
-      await eventRef.update(baseEventData);
-      return res.status(200).json({
-        success: true,
-        data: {
-          id,
-          ...baseEventData,
-          slug: eventDoc.data().slug
-        }
-      });
-    }
+//       await eventRef.update(baseEventData);
+//       return res.status(200).json({
+//         success: true,
+//         data: {
+//           id,
+//           ...baseEventData,
+//           slug: eventDoc.data().slug
+//         }
+//       });
+//     }
 
-    // Simplified slug generation with duplicate handling
-    const slugBase = email.split('@')[0];
-    const titleSlug = finalTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    let slug = `${slugBase}/${titleSlug}`;
+//     // Simplified slug generation with duplicate handling
+//     const slugBase = email.split('@')[0];
+//     const titleSlug = finalTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+//     let slug = `${slugBase}/${titleSlug}`;
 
-    // Check for existing slug
-    const existingEvents = await db.collection('meetflow_user_event')
-      .where('slug', '==', slug)
-      .get();
+//     // Check for existing slug
+//     const existingEvents = await db.collection('meetflow_user_event')
+//       .where('slug', '==', slug)
+//       .get();
 
-    if (!existingEvents.empty) {
-      // If duplicate exists, add a random separator and timestamp
-      const separators = ['.', '-', '~', '+'];
-      const randomSeparator = separators[Math.floor(Math.random() * separators.length)];
-      const timestamp = Date.now().toString().slice(-4);
-      slug = `${slugBase}/${titleSlug}${randomSeparator}${timestamp}`;
-    }
+//     if (!existingEvents.empty) {
+//       // If duplicate exists, add a random separator and timestamp
+//       const separators = ['.', '-', '~', '+'];
+//       const randomSeparator = separators[Math.floor(Math.random() * separators.length)];
+//       const timestamp = Date.now().toString().slice(-4);
+//       slug = `${slugBase}/${titleSlug}${randomSeparator}${timestamp}`;
+//     }
 
-    const newEventData = {
-      ...baseEventData,
-      slug,
-      createdAt: new Date().toISOString()
-    };
+//     const newEventData = {
+//       ...baseEventData,
+//       slug,
+//       createdAt: new Date().toISOString()
+//     };
 
-    const eventRef = await db.collection('meetflow_user_event').add(newEventData);
-    res.status(201).json({
-      success: true,
-      data: {
-        id: eventRef.id,
-        ...newEventData
-      }
-    });
+//     const eventRef = await db.collection('meetflow_user_event').add(newEventData);
+//     res.status(201).json({
+//       success: true,
+//       data: {
+//         id: eventRef.id,
+//         ...newEventData
+//       }
+//     });
 
-  } catch (error) {
-    console.error('Event creation/update error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to process event',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+//   } catch (error) {
+//     console.error('Event creation/update error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to process event',
+//       details: process.env.NODE_ENV === 'development' ? error.message : undefined
+//     });
+//   }
+// });
 
 // Fetch All Events API
 app.get('/meetflow/events', async (req, res) => {
