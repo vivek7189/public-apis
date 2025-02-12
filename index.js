@@ -1530,7 +1530,8 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
             data: {
               userId: newUserDoc.id,
               phone,
-              loginProvider: 'phone'
+              loginProvider: 'phone',
+              email:newUserData?.email
             }
           });
         } else {
@@ -2382,6 +2383,71 @@ function getMonthRange(dateString) {
   }
 });
 
+app.put('/meetflow/updateemail', async (req, res) => {
+  try {
+    const { userId, newEmail } = req.body;
+
+    // Validate required fields
+    if (!userId || !newEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields - userId and newEmail are required'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format'
+      });
+    }
+
+    // Check if user exists and get document data
+    const userRef = db.collection('meetflow_user_data').doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userData = userDoc.data();
+
+    // Check if document already has an email
+    if (userData.email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email field already exists for this user'
+      });
+    }
+
+    // Update user data with email
+    await userRef.update({
+      email: newEmail,
+      updatedAt: new Date().toISOString()
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Email added successfully',
+      data: {
+        userId,
+        email: newEmail
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating email:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
 // Event Type APIs
 // Create Event API
 app.post('/meetflow/eventcreate', async (req, res) => {
