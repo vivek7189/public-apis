@@ -2,8 +2,8 @@ const express = require('express');
 require('dotenv').config();
 //const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
-const rateLimit = require('express-rate-limit');
-const { HfInference } = require("@huggingface/inference");
+//const rateLimit = require('express-rate-limit');
+//const { HfInference } = require("@huggingface/inference");
 const { Storage } = require('@google-cloud/storage');
 const Together = require('together-ai');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
@@ -24,14 +24,14 @@ const EventParser = require('./eventParser/eventParser');
 app.use(cors());
 
 app.use(express.json());
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 50, // Limit each IP to 100 requests per windowMs
+//   message: 'Too many requests from this IP, please try again later.'
+// });
 
-const hf = new HfInference(process.env.DEEPSEEK_API_TOKEN_KEY);
-const together = new Together(process.env.DEEPSEEK_API_TOKEN_KEY);
+//const hf = new HfInference(process.env.DEEPSEEK_API_TOKEN_KEY);
+//const together = new Together(process.env.DEEPSEEK_API_TOKEN_KEY);
 
 const validateChatRequest = (req, res, next) => {
   const { messages } = req.body;
@@ -3154,60 +3154,60 @@ app.post('/meetflow/reset-password', async (req, res) => {
 
 
 // hugging face API
-app.post('/meetflowde/chat', validateChatRequest, async (req, res) => {
-  const { messages, maxTokens = 500, temperature = 0.7, topP = 0.9 } = req.body;
+// app.post('/meetflowde/chat', validateChatRequest, async (req, res) => {
+//   const { messages, maxTokens = 500, temperature = 0.7, topP = 0.9 } = req.body;
 
-  try {
-    const response = await hf.chatCompletion({
-      model: "deepseek-ai/DeepSeek-R1",
-      messages: messages,
-      provider: "together",
-      max_tokens: maxTokens,
-      temperature: temperature,
-      top_p: topP,
-    });
+//   try {
+//     const response = await hf.chatCompletion({
+//       model: "deepseek-ai/DeepSeek-R1",
+//       messages: messages,
+//       provider: "together",
+//       max_tokens: maxTokens,
+//       temperature: temperature,
+//       top_p: topP,
+//     });
 
-    res.json({
-      success: true,
-      data: response.choices[0].message,
-      usage: response.usage
-    });
+//     res.json({
+//       success: true,
+//       data: response.choices[0].message,
+//       usage: response.usage
+//     });
 
-  } catch (error) {
-    console.error('Chat completion error:', error);
+//   } catch (error) {
+//     console.error('Chat completion error:', error);
     
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get AI response',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to get AI response',
+//       details: process.env.NODE_ENV === 'development' ? error.message : undefined
+//     });
+//   }
+// });
 
 
-app.post('/meetflowto/chat', async (req, res) => {   
-  try {       
-      // Use API key from environment variable
-      const together = new Together(process.env.TOGETHER_API_KEY);
+// app.post('/meetflowto/chat', async (req, res) => {   
+//   try {       
+//       // Use API key from environment variable
+//       const together = new Together(process.env.TOGETHER_API_KEY);
       
-      const { messages } = req.body;       
+//       const { messages } = req.body;       
       
-      const response = await together.chat.completions.create({           
-          messages: messages,           
-          model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",           
-          max_tokens: 500,           
-          temperature: 0.7,       
-      });        
+//       const response = await together.chat.completions.create({           
+//           messages: messages,           
+//           model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",           
+//           max_tokens: 500,           
+//           temperature: 0.7,       
+//       });        
 
-      res.json({           
-          success: true,           
-          message: response.choices[0].message       
-      });   
-  } catch (error) {       
-      console.error('Error:', error);       
-      res.status(500).json({           
-          success: false,           
-          error: error.message       
-      });   
-  } 
-});
+//       res.json({           
+//           success: true,           
+//           message: response.choices[0].message       
+//       });   
+//   } catch (error) {       
+//       console.error('Error:', error);       
+//       res.status(500).json({           
+//           success: false,           
+//           error: error.message       
+//       });   
+//   } 
+// });
