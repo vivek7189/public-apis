@@ -12,7 +12,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { google } = require('googleapis');
 const TokenService = require('./token/token');
 const TokenManager = require('./token/token_manager');
-const Together = require('together-ai');
+//const Together = require('together-ai');
 const cors = require('cors');
 const fetch = require('node-fetch'); 
 // Using require (CommonJS)
@@ -3186,29 +3186,29 @@ app.post('/meetflow/reset-password', async (req, res) => {
 // });
 
 
-app.post('/meetflowto/chat', async (req, res) => {   
-  try {       
-      // Use API key from environment variable
-      const together = new Together('ee008bb553423aecf1017f7b3163ebe4e8e82f542c7af80a76f740e02cd4beaf');
+// app.post('/meetflowto/chat', async (req, res) => {   
+//   try {       
+//       // Use API key from environment variable
+//       //const together = new Together('ee008bb553423aecf1017f7b3163ebe4e8e82f542c7af80a76f740e02cd4beaf');
       
-      const { messages } = req.body;       
+//       const { messages } = req.body;       
       
-      const response = await together.chat.completions.create({           
-          messages: messages,           
-          model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",           
-          max_tokens: 500,           
-          temperature: 0.7,       
-      });        
+//       const response = await together.chat.completions.create({           
+//           messages: messages,           
+//           model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",           
+//           max_tokens: 500,           
+//           temperature: 0.7,       
+//       });        
 
-      res.json({           
-          success: true,           
-          message: response.choices[0].message       
-      });   
-  } catch (error) {       
-      console.error('Error:', error);       
-      res.status(500).json({           
-          success: false,           
-          error: error.message       
-      });   
-  } 
-});
+//       res.json({           
+//           success: true,           
+//           message: response.choices[0].message       
+//       });   
+//   } catch (error) {       
+//       console.error('Error:', error);       
+//       res.status(500).json({           
+//           success: false,           
+//           error: error.message       
+//       });   
+//   } 
+// });
