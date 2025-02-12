@@ -46,7 +46,8 @@ class EventParser {
       'google meet': 'google-meet',
       'zoom': 'zoom',
       'teams': 'ms-teams',
-      'skype': 'skype'
+      'skype': 'skype',
+      "custom":'custom'
     };
 
     const lowerText = text.toLowerCase();
@@ -108,7 +109,7 @@ class EventParser {
         error: error.message,
         data: {
           duration: 30,
-          meetType: 'google-meet',
+          meetType: 'custom',
           title: text,
           metadata: {
             category: 'unknown',

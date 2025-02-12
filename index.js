@@ -2523,7 +2523,7 @@ app.post('/meetflow/eventcreate', async (req, res) => {
       title: finalTitle,
       duration: finalDuration,
       location:finalLocation,
-      description:description || 'NA',
+      description:description || text,
       email,
       reminders,
       updatedAt: new Date().toISOString(),
