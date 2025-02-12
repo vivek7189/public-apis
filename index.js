@@ -3826,7 +3826,7 @@ app.post('/meetflow/forgot-password', async (req, res) => {
       </div>
     `;
 
-    await sendEmail({
+    await emailService.sendEmail({
       to: email,
       subject: 'Password Reset OTP - MeetSynk',
       text: `Your password reset OTP is: ${otp}. This OTP will expire in 6 hours.`,
