@@ -1431,7 +1431,7 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
           .where('email', '==', email)
           .limit(1)
           .get();
-
+          const usersRef = db.collection('meetflow_user_data');
         if (userSnapshot.empty) {
           return res.status(404).json({
             success: false,
@@ -1491,7 +1491,6 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
         if (userSnapshot.empty) {
           const newUserData = {
             phone,
-            email: `${phone.replace(/\D/g, '')}@phone.meetsynk.com`,
             loginProvider: 'phone',
             calendarUrl: generateCalendarUrl(`user_${phone}`),
             createdAt: new Date(),
@@ -3757,3 +3756,160 @@ function getPlanTitle(planId) {
   return planMap[planId] || 'Free Plan';
 }
 // payment webhook
+
+
+
+// reset and forgot password
+// meetflow/reset.js
+
+
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+app.post('/meetflow/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    // Get user document from meetflow_user_data
+    const userSnapshot = await db.collection('meetflow_user_data')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userDoc = userSnapshot.docs[0];
+    const userData = userDoc.data();
+
+    // Check if user has email login
+    if (!userData.emailLogin || !userData.emailLogin.password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email login not configured for this user'
+      });
+    }
+
+    // Generate OTP and expiry time (6 hours from now)
+    const otp = generateOTP();
+    const expiryTime = new Date();
+    expiryTime.setHours(expiryTime.getHours() + 6);
+
+    // Update user document with OTP and expiry
+    await db.collection('meetflow_user_data').doc(userDoc.id).update({
+      'emailLogin.otpValueReset': otp,
+      'emailLogin.otpExpiry': expiryTime.toISOString()
+    });
+
+    // Send OTP email
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Password Reset Request</h2>
+        <p>Hello,</p>
+        <p>We received a request to reset your password. Here is your OTP:</p>
+        <h1 style="font-size: 32px; letter-spacing: 5px; text-align: center; padding: 20px; background-color: #f5f5f5; border-radius: 5px;">${otp}</h1>
+        <p>This OTP will expire in 6 hours.</p>
+        <p>If you didn't request this password reset, please ignore this email.</p>
+        <p>Best regards,<br>MeetSynk Team</p>
+      </div>
+    `;
+
+    await sendEmail({
+      to: email,
+      subject: 'Password Reset OTP - MeetSynk',
+      text: `Your password reset OTP is: ${otp}. This OTP will expire in 6 hours.`,
+      html: emailHtml
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully'
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+app.post('/meetflow/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email, OTP, and new password are required'
+      });
+    }
+
+    // Get user document
+    const userSnapshot = await db.collection('meetflow_user_data')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (userSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const userDoc = userSnapshot.docs[0];
+    const userData = userDoc.data();
+
+    // Verify OTP and expiry
+    if (!userData.emailLogin?.otpValueReset || 
+        userData.emailLogin.otpValueReset !== otp || 
+        !userData.emailLogin.otpExpiry) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid OTP'
+      });
+    }
+
+    // Check OTP expiry
+    const expiryTime = new Date(userData.emailLogin.otpExpiry);
+    if (expiryTime < new Date()) {
+      return res.status(400).json({
+        success: false,
+        error: 'OTP has expired'
+      });
+    }
+
+    // Update password and clear OTP
+    await db.collection('meetflow_user_data').doc(userDoc.id).update({
+      'emailLogin.password': newPassword,
+      'emailLogin.otpValueReset': null,
+      'emailLogin.otpExpiry': null
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password reset successful'
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
