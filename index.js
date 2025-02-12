@@ -2498,7 +2498,7 @@ app.post('/meetflow/eventcreate', async (req, res) => {
     const finalLocation = (parsedEventData?.meetType || location);
 
     // Validate required fields
-    if (!finalTitle || !finalDuration || !location || !email) {
+    if (!finalTitle || !finalDuration || !finalLocation || !email) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields',
@@ -2510,18 +2510,18 @@ app.post('/meetflow/eventcreate', async (req, res) => {
         }
       });
     }
-
+    
     const baseEventData = {
       title: finalTitle,
       duration: finalDuration,
       location:finalLocation,
-      description,
+      description:description || 'NA',
       email,
       reminders,
       updatedAt: new Date().toISOString(),
       ...(parsedEventData && { parsedEventData }) // Add parsed data if exists
     };
-
+    console.log('baseEventData ',baseEventData)
     if (id) {
       const eventRef = db.collection('meetflow_user_event').doc(id);
       const eventDoc = await eventRef.get();
@@ -2544,7 +2544,7 @@ app.post('/meetflow/eventcreate', async (req, res) => {
       });
     }
 
-    const slug = `${email.split('@')[0]}/${title.toLowerCase().replace(/\s+/g, '-')}`;
+    const slug = `${email.split('@')[0]}/${finalTitle.toLowerCase().replace(/\s+/g, '-')}`;
     const existingEvents = await db.collection('meetflow_user_event')
       .where('slug', '==', slug)
       .get();
