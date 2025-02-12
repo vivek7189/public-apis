@@ -333,6 +333,14 @@ const server=app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
+// Global error handler
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 // require('./chat')(app, server);
 require('./user/index')(app, server);
 
