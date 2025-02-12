@@ -17,7 +17,7 @@ const Razorpay = require('razorpay');
 const axios = require('axios');
 const app = express();
 const emailService = require('./email-service/email');
-
+const EventParser = require('./eventParser/eventParser');
 app.use(cors());
 app.use(express.json());
 
@@ -2450,9 +2450,23 @@ app.put('/meetflow/updateemail', async (req, res) => {
 });
 // Event Type APIs
 // Create Event API
+app.post('/meetflow/parse-event', async (req, res) => {
+  try {
+    const { text } = req.body;
+    const parser = new EventParser();
+    const result = await parser.parseEvent(text);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
 app.post('/meetflow/eventcreate', async (req, res) => {
   try {
     const { 
+      text,
       id, 
       title, 
       duration, 
@@ -2462,21 +2476,50 @@ app.post('/meetflow/eventcreate', async (req, res) => {
       reminders = { whatsapp: { enabled: false, timing: 15 } }
     } = req.body;
 
-    if (!title || !duration || !location || !email) {
+    let parsedEventData = null;
+    if (text) {
+      const parser = new EventParser();
+      const parseResult = await parser.parseEvent(text);
+      
+      if (parseResult.success) {
+        parsedEventData = {
+          parsedTitle: parseResult.data.title,
+          parsedDuration: parseResult.data.duration,
+          meetType: parseResult.data.meetType,
+          parseCategory: parseResult.data.metadata.category,
+          originalText: text
+        };
+      }
+    }
+
+    // Use parsed data if available, otherwise use provided data
+    const finalTitle = (parsedEventData?.parsedTitle || title);
+    const finalDuration = (parsedEventData?.parsedDuration || duration);
+    const finalLocation = (parsedEventData?.meetType || location);
+
+    // Validate required fields
+    if (!finalTitle || !finalDuration || !location || !email) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields'
+        error: 'Missing required fields',
+        missingFields: {
+          title: !finalTitle,
+          duration: !finalDuration,
+          location: !finalLocation,
+          email: !email
+        }
       });
     }
 
     const baseEventData = {
-      title,
-      duration,
-      location,
+      title: finalTitle,
+      duration: finalDuration,
+      location:finalLocation,
       description,
       email,
       reminders,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      ...(parsedEventData && { parsedEventData }) // Add parsed data if exists
     };
 
     if (id) {
