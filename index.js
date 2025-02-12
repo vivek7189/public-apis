@@ -5,6 +5,7 @@ const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { google } = require('googleapis');
 const TokenService = require('./token/token');
 const TokenManager = require('./token/token_manager');
@@ -16,6 +17,7 @@ const Razorpay = require('razorpay');
 const axios = require('axios');
 const app = express();
 const emailService = require('./email-service/email');
+
 app.use(cors());
 app.use(express.json());
 
@@ -51,12 +53,21 @@ const storage = new Storage();
 const bucket = storage.bucket('demoimage-7189');
 
 // Initialize Firebase Admin with application default credentials
-initializeApp({
+const admin=initializeApp({
     credential: applicationDefault()
 });
 
+
 const db = getFirestore();
 
+const phoneAuthApp = initializeApp({
+  credential: require('firebase-admin').credential.cert({
+      projectId: process.env.PHONE_AUTH_PROJECT_ID_MEETSYNK,
+      privateKey: process.env.PHONE_AUTH_PRIVATE_KEY_MEETSYNK.replace(/\\n/g, '\n'),
+      clientEmail: process.env.PHONE_AUTH_CLIENT_EMAIL_MEETSYNK
+  }),
+}, 'phoneAuth');
+const phoneAuth = getAuth(phoneAuthApp);
 const tokenService = new TokenService(
   '1087929121342-jr3oqd7f01s6hoel792lgdvka5prtvdq.apps.googleusercontent.com',
   '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',
@@ -1451,22 +1462,24 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
       }
 
       case 'phone': {
-        const { phone, otp } = req.body;
+        const { phone, idToken } = req.body;
         
-        if (!phone || !otp) {
+        if (!phone || !idToken) {
           return res.status(400).json({
             success: false,
-            error: 'Phone and OTP are required'
+            error: 'Phone and idToken are required'
           });
         }
-
-        // Here you would verify OTP with your service
+      
+        const decodedToken = await phoneAuth.verifyIdToken(idToken);
+        console.log('decodedToken', decodedToken);
         const tokens = await tokenManager.generateTokenSet();
+      
         const userSnapshot = await usersRef
           .where('phone', '==', phone)
           .limit(1)
           .get();
-
+      
         if (userSnapshot.empty) {
           const newUserData = {
             phone,
@@ -1482,7 +1495,14 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
               accessToken: tokens.accessToken,
               tokenType: tokens.tokenType,
               tokenExpiryDate: tokens.tokenExpiryDate,
-              refreshToken: tokens.refreshToken
+              refreshToken: tokens.refreshToken,
+              // Add Firebase auth fields
+              firebaseUID: decodedToken.uid,
+              firebaseProvider: decodedToken.firebase.sign_in_provider,
+              phoneNumber: decodedToken.phone_number,
+              authTime: new Date(decodedToken.auth_time * 1000).toISOString(),
+              issuer: decodedToken.iss,
+              audience: decodedToken.aud
             },
             availability: {
               weeklySchedule: {
@@ -1502,7 +1522,7 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
               lastUpdated: new Date().toISOString()
             }]
           };
-
+      
           const newUserDoc = await usersRef.add(newUserData);
           return res.status(200).json({
             success: true,
@@ -1520,9 +1540,16 @@ app.post('/meetflow/auth/:provider', async (req, res) => {
             'phoneLogin.accessToken': tokens.accessToken,
             'phoneLogin.tokenType': tokens.tokenType,
             'phoneLogin.tokenExpiryDate': tokens.tokenExpiryDate,
-            'phoneLogin.refreshToken': tokens.refreshToken
+            'phoneLogin.refreshToken': tokens.refreshToken,
+            // Update Firebase auth fields
+            'phoneLogin.firebaseUID': decodedToken.uid,
+            'phoneLogin.firebaseProvider': decodedToken.firebase.sign_in_provider,
+            'phoneLogin.phoneNumber': decodedToken.phone_number,
+            'phoneLogin.authTime': new Date(decodedToken.auth_time * 1000).toISOString(),
+            'phoneLogin.issuer': decodedToken.iss,
+            'phoneLogin.audience': decodedToken.aud
           });
-
+      
           return res.status(200).json({
             success: true,
             message: 'Phone login successful',
