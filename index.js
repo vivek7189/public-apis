@@ -3200,29 +3200,54 @@ app.post('/meetflow/reset-password', async (req, res) => {
 // });
 
 
-// app.post('/meetflowto/chat', async (req, res) => {   
-//   try {       
-//       // Use API key from environment variable
-//       //const together = new Together('ee008bb553423aecf1017f7b3163ebe4e8e82f542c7af80a76f740e02cd4beaf');
-      
-//       const { messages } = req.body;       
-      
-//       const response = await together.chat.completions.create({           
-//           messages: messages,           
-//           model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",           
-//           max_tokens: 500,           
-//           temperature: 0.7,       
-//       });        
+app.post('/meetflowto/chat', async (req, res) => {
+  // First check if Together AI is initialized
+  if (!together) {
+      return res.status(503).json({
+          success: false,
+          error: "Together AI service is not initialized"
+      });
+  }
 
-//       res.json({           
-//           success: true,           
-//           message: response.choices[0].message       
-//       });   
-//   } catch (error) {       
-//       console.error('Error:', error);       
-//       res.status(500).json({           
-//           success: false,           
-//           error: error.message       
-//       });   
-//   } 
-// });
+  try {
+      const { messages } = req.body;
+
+      // Validate input
+      if (!messages || !Array.isArray(messages)) {
+          return res.status(400).json({
+              success: false,
+              error: "Invalid messages format"
+          });
+      }
+
+      // Make the API call
+      const response = await together.chat.completions.create({
+          messages: messages,
+          model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+          max_tokens: 500,
+          temperature: 0.7,
+      });
+
+      // Handle empty response
+      if (!response || !response.choices || !response.choices[0]) {
+          throw new Error("Invalid response from Together AI");
+      }
+
+      res.json({
+          success: true,
+          message: response.choices[0].message
+      });
+
+  } catch (error) {
+      console.error('Together AI Error:', error);
+      
+      // Send appropriate error message based on error type
+      const statusCode = error.status || 500;
+      const errorMessage = error.message || "Internal server error";
+      
+      res.status(statusCode).json({
+          success: false,
+          error: errorMessage
+      });
+  }
+});
