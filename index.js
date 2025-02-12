@@ -34,6 +34,20 @@ app.use(express.json());
 //const hf = new HfInference(process.env.DEEPSEEK_API_TOKEN_KEY);
 //const together = new Together(process.env.DEEPSEEK_API_TOKEN_KEY);
 
+let together;
+try {
+    const Together = require('together-ai');
+    if (process.env.TOGETHER_API_KEY) {
+        together = new Together('ee008bb553423aecf1017f7b3163ebe4e8e82f542c7af80a76f740e02cd4beaf');
+        console.log('Together AI initialized successfully');
+    } else {
+        console.log('Together AI API key not found in environment variables');
+    }
+} catch (error) {
+    console.error('Error initializing Together AI:', error);
+    // Continue running the app even if Together AI fails to initialize
+}
+
 const validateChatRequest = (req, res, next) => {
   const { messages } = req.body;
 
