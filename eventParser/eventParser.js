@@ -27,17 +27,37 @@ class EventParser {
   }
 
   extractDuration(text) {
-    const durationMatch = text.toLowerCase().match(/(\d+)\s*(min|minute|hour|hr)/);
-    if (!durationMatch) return 30; // Default duration
-
-    const value = parseInt(durationMatch[1]);
-    const unit = durationMatch[2];
-
-    // Convert hours to minutes
-    if (unit.startsWith('hour') || unit === 'hr') {
-      return value * 60;
+    // More comprehensive duration matching
+    const durationPatterns = [
+      /(\d+)\s*(?:hr|hour|hrs|hours)/i,  // Matches "1 hour", "2 hrs", etc.
+      /(\d+)\s*(?:min|minute|mins|minutes)/i,  // Matches "30 min", "45 minutes", etc.
+      /^(\d+)\s*(?:hour|hr)$/i,  // Matches standalone "1 hour"
+      /^(\d+)\s*(?:min|minute)$/i  // Matches standalone "30 min"
+    ];
+  
+    for (const pattern of durationPatterns) {
+      const durationMatch = text.match(pattern);
+      if (durationMatch) {
+        const value = parseInt(durationMatch[1]);
+        const unit = durationMatch[0].toLowerCase();
+  
+        // Convert hours to minutes
+        if (unit.includes('hour') || unit.includes('hr')) {
+          return value * 60;
+        }
+        
+        return value;
+      }
     }
-    return value;
+  
+    // Additional parsing for formats like "1-hour"
+    const hyphenMatch = text.match(/(\d+)\s*-\s*hour/i);
+    if (hyphenMatch) {
+      return parseInt(hyphenMatch[1]) * 60;
+    }
+  
+    // Default duration if no specific time found
+    return 30;
   }
 
   extractMeetingPlatform(text) {
